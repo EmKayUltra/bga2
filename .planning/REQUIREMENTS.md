@@ -22,11 +22,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Azul
 
-- [ ] **AZUL-01**: Azul drafting phase — select tiles from shared factories
-- [ ] **AZUL-02**: Azul tiling phase — place tiles on pattern lines and wall
-- [ ] **AZUL-03**: Azul scoring — per-round and end-game scoring with all rules
-- [ ] **AZUL-04**: Azul supports 2-4 players with correct component counts
-- [ ] **AZUL-05**: All Azul edge cases handled (floor line overflow, factory exhaustion, first player token)
+- [x] **AZUL-01**: Azul drafting phase — select tiles from shared factories
+- [x] **AZUL-02**: Azul tiling phase — place tiles on pattern lines and wall
+- [x] **AZUL-03**: Azul scoring — per-round and end-game scoring with all rules
+- [x] **AZUL-04**: Azul supports 2-4 players with correct component counts
+- [x] **AZUL-05**: All Azul edge cases handled (floor line overflow, factory exhaustion, first player token)
 
 ### Multiplayer
 
@@ -143,11 +143,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENG-10 | Phase 1 | Complete |
 | INFR-01 | Phase 1 | Complete |
 | INFR-02 | Phase 1 | Complete |
-| AZUL-01 | Phase 2 | Pending |
-| AZUL-02 | Phase 2 | Pending |
-| AZUL-03 | Phase 2 | Pending |
-| AZUL-04 | Phase 2 | Pending |
-| AZUL-05 | Phase 2 | Pending |
+| AZUL-01 | Phase 2 | Complete |
+| AZUL-02 | Phase 2 | Complete |
+| AZUL-03 | Phase 2 | Complete |
+| AZUL-04 | Phase 2 | Complete |
+| AZUL-05 | Phase 2 | Complete |
 | PLAT-01 | Phase 2 | Pending |
 | MULT-01 | Phase 3 | Pending |
 | MULT-03 | Phase 3 | Pending |

@@ -1,0 +1,138 @@
+# Requirements: BGA2
+
+**Defined:** 2026-02-28
+**Core Value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
+
+## v1 Requirements
+
+Requirements for initial release. Each maps to roadmap phases.
+
+### Game Engine
+
+- [ ] **ENG-01**: Game engine provides zone/board primitives (grids, freeform areas, hands, decks, discard piles)
+- [ ] **ENG-02**: Game engine provides piece primitives (cards, tokens, tiles, dice) with properties and state
+- [ ] **ENG-03**: Game engine provides hierarchical FSM runtime (Game > Phase > Turn > Stage) with parallel regions
+- [ ] **ENG-04**: Server validates every move against state machine + game hooks; client never enforces rules
+- [ ] **ENG-05**: Client receives validMoves[] from server for legal move highlighting
+- [ ] **ENG-06**: IRenderer interface abstracts rendering; game logic never imports renderer directly
+- [ ] **ENG-07**: PixiJS 8 WebGL adapter implements IRenderer as primary renderer
+- [ ] **ENG-08**: Zoom/pan works on all devices — pinch-to-zoom mobile, scroll-wheel desktop, drag to pan
+- [ ] **ENG-09**: Touch targets minimum 44px; no hover-dependent interactions
+- [ ] **ENG-10**: Games defined as data (game.json) + script hooks (hooks.ts) on shared engine
+
+### Azul
+
+- [ ] **AZUL-01**: Azul drafting phase — select tiles from shared factories
+- [ ] **AZUL-02**: Azul tiling phase — place tiles on pattern lines and wall
+- [ ] **AZUL-03**: Azul scoring — per-round and end-game scoring with all rules
+- [ ] **AZUL-04**: Azul supports 2-4 players with correct component counts
+- [ ] **AZUL-05**: All Azul edge cases handled (floor line overflow, factory exhaustion, first player token)
+
+### Multiplayer
+
+- [ ] **MULT-01**: Real-time synchronous play via AppSync Events WebSocket
+- [ ] **MULT-02**: Async turn-based play with configurable timer presets (fast/normal/slow/unlimited)
+- [ ] **MULT-03**: Lobby with open and invite-only table creation
+- [ ] **MULT-04**: Reconnection re-fetches server state before enabling interaction
+- [ ] **MULT-05**: Idempotent move protocol with client-generated UUIDs
+- [ ] **MULT-06**: DynamoDB conditional writes with state versioning prevent concurrent update corruption
+
+### Social
+
+- [ ] **SOCL-01**: User can create profile with username and avatar
+- [ ] **SOCL-02**: User can view match history with results, opponents, dates
+- [ ] **SOCL-03**: User can add/remove friends
+- [ ] **SOCL-04**: User can invite friends to a game
+- [ ] **SOCL-05**: User can create private invite-only tables
+- [ ] **SOCL-06**: User can send text chat messages during and after games
+
+### Notifications
+
+- [ ] **NOTF-01**: User receives email notification when it's their turn (async games)
+- [ ] **NOTF-02**: Turn timer enforces deadlines with escalating reminders (48h, 24h, final hour)
+- [ ] **NOTF-03**: User receives Web Push notification via PWA service worker
+- [ ] **NOTF-04**: User can configure notification preferences (immediate vs digest, per-game)
+
+### Player Experience
+
+- [ ] **PEXP-01**: Game log shows full move history with timestamps
+- [ ] **PEXP-02**: Game library page with browse, search, genre tags, recently played
+- [ ] **PEXP-03**: Spectator can watch a live game in read-only mode
+- [ ] **PEXP-04**: Game replay with step forward/back, jump to any turn, pause
+
+### AI Game Creation
+
+- [ ] **AIGC-01**: Local C# tool ingests rulebook (PDF/text) and art assets
+- [ ] **AIGC-02**: LLM generates human-reviewable game spec (structured JSON) from source materials
+- [ ] **AIGC-03**: LLM generates game.json + hooks.ts from approved spec
+- [ ] **AIGC-04**: Hot-reload test harness with file watcher and local engine
+- [ ] **AIGC-05**: Game state manipulation for testing specific scenarios (jump to any state)
+- [ ] **AIGC-06**: Human review gate with structured checklist and discrepancy report
+- [ ] **AIGC-07**: Package and deploy game bundle to S3
+
+### Platform
+
+- [ ] **PLAT-01**: User can sign up, log in, and maintain session across browser refresh
+- [ ] **PLAT-02**: PWA installable from browser with service worker
+- [ ] **PLAT-03**: Freemium subscription with premium game/feature access (Stripe)
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Ratings & Matchmaking
+
+- **RATE-01**: ELO per-game skill rating computed from match history
+- **RATE-02**: Matchmaking considers ELO for balanced games
+
+### Community
+
+- **COMM-01**: Community game submissions with QA pipeline
+- **COMM-02**: Creator analytics dashboard (play counts, drop-off, duration)
+- **COMM-03**: Tournament system with brackets and ELO gating
+
+### Advanced Features
+
+- **ADVN-01**: AI opponents for solo play
+- **ADVN-02**: Tutorial creation tools (scenario-based, creator-authored)
+- **ADVN-03**: Vacation/pause mode for async players
+- **ADVN-04**: Post-game statistics (win rates, scoring trends)
+- **ADVN-05**: Board state preview in email/push notifications
+
+### Platform Growth
+
+- **GROW-01**: Second renderer implementation (WebGPU or Godot WASM when stable)
+- **GROW-02**: Native mobile apps via PWA wrapper (Capacitor/PWABuilder)
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| AI opponents | Per-game ML complexity enormous; human multiplayer base needs to exist first |
+| Full physics sandbox | Eliminates rule-enforcement value proposition |
+| Voice/video chat | WebRTC complexity + cost; players use Discord |
+| Native mobile apps | PWA-first; wrap later if needed |
+| Global chat / open lobby chat | Moderation nightmare at scale |
+| Reputation thumbs (green/red) | Harassment vector; use objective metrics instead |
+| Real-time guild/clan system | Premature before critical mass; friends suffice |
+| Integrated marketplace | Licensing/affiliate complexity; not core |
+| Publisher licensing deals | Business development complexity; defer |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| (Populated during roadmap creation) | | |
+
+**Coverage:**
+- v1 requirements: 38 total
+- Mapped to phases: 0
+- Unmapped: 38
+
+---
+*Requirements defined: 2026-02-28*
+*Last updated: 2026-02-28 after initial definition*

@@ -32,13 +32,28 @@ import type { Piece } from '@bga2/engine-core';
 
 const TILE_SIZE = 48;              // px — each tile is 48x48
 const TILE_GAP = 4;               // px — gap between tiles in a zone
-const FACTORY_RADIUS = 60;        // px — factory display circle radius
-const FACTORY_SPACING = 140;      // px — center-to-center distance between factories
-const BOARD_PADDING = 20;         // px — padding inside player board containers
+const CELL = TILE_SIZE + TILE_GAP; // 52px — cell stride
+const FACTORY_RADIUS = 68;        // px — factory display circle radius
+const FACTORY_SPACING = 150;      // px — center-to-center distance between factories
+const BOARD_PADDING = 16;         // px — padding inside player board containers
 
 // Colors
 const SELECTION_GLOW = 0x4a90ff;            // blue selection glow
 const VALID_MOVE_GLOW = 0x22c55e;           // green valid-move highlight
+
+// ─── Azul wall color pattern ─────────────────────────────────────────────────
+// The Azul wall has a fixed color arrangement — each row shifts one position.
+// Colors: Blue, Yellow, Red, Black, Teal (matching piece defs from game.json)
+const AZUL_TILE_COLORS = ['#4A90D9', '#F5C542', '#E74C3C', '#2C3E50', '#1ABC9C'];
+
+/** Wall pattern: wallPattern[row][col] = index into AZUL_TILE_COLORS */
+const WALL_PATTERN = [
+  [0, 1, 2, 3, 4],  // Row 0: B Y R K T
+  [4, 0, 1, 2, 3],  // Row 1: T B Y R K
+  [3, 4, 0, 1, 2],  // Row 2: K T B Y R
+  [2, 3, 4, 0, 1],  // Row 3: R K T B Y
+  [1, 2, 3, 4, 0],  // Row 4: Y R K T B
+];
 
 // ─── Piece handle map ─────────────────────────────────────────────────────────
 
@@ -97,15 +112,19 @@ export class AzulScene {
       (z) => z.id.startsWith('factory-')
     );
 
-    const startX = 130;
+    // Center factory area horizontally in the world (world width = 640)
+    const centerX = 320;
     const startY = 80;
 
     factoryZones.forEach((zone, i) => {
       // Arrange factories in two rows: 3 on top, 2 on bottom centered
       const row = Math.floor(i / 3);
       const col = i % 3;
-      const cx = startX + col * FACTORY_SPACING + (row === 1 ? FACTORY_SPACING / 2 : 0);
-      const cy = startY + row * (FACTORY_RADIUS * 2 + 30);
+      // Top row: 3 factories centered; bottom row: 2 factories centered
+      const rowWidth = (row === 0 ? 2 : 1) * FACTORY_SPACING;
+      const rowStartX = centerX - rowWidth / 2;
+      const cx = rowStartX + col * FACTORY_SPACING;
+      const cy = startY + row * (FACTORY_RADIUS * 2 + 20);
 
       // Draw factory background circle (styled placeholder)
       this.drawFactoryBackground(cx, cy);
@@ -135,13 +154,13 @@ export class AzulScene {
     const centerZone = this.model.zones.get('center');
     if (!centerZone) return;
 
-    const cx = 310;
-    const cy = 330;
+    const cx = 320;
+    const cy = 340;
     const width = 260;
-    const height = 60;
+    const height = 50;
 
-    // Draw center area background
-    this.drawZoneBackground(cx - width / 2, cy - height / 2, width, height, '', 'Center');
+    // Draw center area background (uses center-bg for distinct styling)
+    this.drawCenterBackground(cx - width / 2, cy - height / 2, width, height);
 
     // Render tiles in center (flowing left-to-right)
     const pieces = centerZone.getPieces();
@@ -157,18 +176,18 @@ export class AzulScene {
    * Each board shows: pattern lines (5 rows), wall (5x5 grid), floor line (1x7).
    */
   private renderPlayerBoards(): void {
-    // pattern (5 cells) + gap + wall (5 cells) = 10*52 + 16 = 536, + 2*padding = 576
-    const CELL = TILE_SIZE + TILE_GAP; // 52
-    const boardWidth = 10 * CELL + 16 + 2 * BOARD_PADDING;  // 576
-    // 5 pattern rows + gap + floor row + padding + label
-    const boardHeight = 6 * CELL + 24 + 24 + 2 * BOARD_PADDING; // ~420
-    const boardStartY = 420;
+    // pattern (5 cells) + gap + wall (5 cells) = 10*CELL + 16 = 536, + 2*padding
+    const boardWidth = 10 * CELL + 16 + 2 * BOARD_PADDING;  // 552
+    // 5 pattern rows + floor gap + floor row + label + padding
+    const boardHeight = 5 * CELL + 8 + CELL + 20 + 2 * BOARD_PADDING; // 360
+    const boardStartY = 390;
 
     // Phase 1: render two player boards stacked vertically (fits better)
+    // Center horizontally in world (world width = 640)
     const playerNames = ['Player 1', 'Player 2'];
     playerNames.forEach((name, i) => {
-      const bx = 30;
-      const by = boardStartY + i * (boardHeight + 20);
+      const bx = (640 - boardWidth) / 2;
+      const by = boardStartY + i * (boardHeight + 16);
       this.renderPlayerBoard(bx, by, boardWidth, boardHeight, name, i);
     });
   }
@@ -188,20 +207,20 @@ export class AzulScene {
     this.drawZoneBackground(bx, by, width, height, '', playerName);
 
     const contentX = bx + BOARD_PADDING;
-    const contentY = by + BOARD_PADDING + 24; // 24px for label
+    const contentY = by + BOARD_PADDING + 20; // 20px for label area
 
-    // Pattern lines (left side) — rows 1-5
+    // Pattern lines (left side) — rows 1-5, right-aligned
     for (let row = 0; row < 5; row++) {
       const numCols = row + 1;
-      const rightEdgeX = contentX + 5 * (TILE_SIZE + TILE_GAP) - TILE_GAP; // align right edge
-      const lineY = contentY + row * (TILE_SIZE + TILE_GAP);
+      const rightEdgeX = contentX + 5 * CELL - TILE_GAP; // align right edge
+      const lineY = contentY + row * CELL;
 
       const zoneId = `player-pattern-line-${row + 1}`;
       const zone = this.model.zones.get(zoneId);
       const pieces = zone?.getPieces() ?? [];
 
       for (let col = 0; col < numCols; col++) {
-        const tx = rightEdgeX - (numCols - col) * (TILE_SIZE + TILE_GAP) + TILE_GAP;
+        const tx = rightEdgeX - (numCols - col) * CELL + TILE_GAP;
         const ty = lineY;
 
         if (col < pieces.length) {
@@ -212,22 +231,25 @@ export class AzulScene {
       }
     }
 
-    // Wall (right side of pattern lines) — 5x5 grid
-    const wallX = contentX + 5 * (TILE_SIZE + TILE_GAP) + 12;
+    // Wall (right side of pattern lines) — 5x5 grid with Azul color pattern
+    const wallX = contentX + 5 * CELL + 12;
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 5; col++) {
-        const tx = wallX + col * (TILE_SIZE + TILE_GAP);
-        const ty = contentY + row * (TILE_SIZE + TILE_GAP);
-        this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE);
+        const tx = wallX + col * CELL;
+        const ty = contentY + row * CELL;
+        // Use the Azul wall color pattern for ghost-colored slots
+        const colorIdx = WALL_PATTERN[row][col];
+        const wallColor = AZUL_TILE_COLORS[colorIdx];
+        this.drawWallSlot(tx, ty, TILE_SIZE, TILE_SIZE, wallColor);
       }
     }
 
     // Floor line (bottom) — 7 slots
-    const floorY = contentY + 5 * (TILE_SIZE + TILE_GAP) + 12;
+    const floorY = contentY + 5 * CELL + 8;
     const floorZone = this.model.zones.get('player-floor-line');
     const floorPieces = floorZone?.getPieces() ?? [];
     for (let col = 0; col < 7; col++) {
-      const tx = contentX + col * (TILE_SIZE + TILE_GAP);
+      const tx = contentX + col * CELL;
       if (col < floorPieces.length) {
         this.renderPiece(floorPieces[col], tx, floorY);
       } else {
@@ -443,6 +465,28 @@ export class AzulScene {
     x: number, y: number, width: number, height: number
   ): void {
     const handle = this.renderer.createSprite(`slot:${x}:${y}:${width}:${height}`);
+    this.renderer.addToStage(handle);
+    this.renderer.setPosition(handle, x, y);
+  }
+
+  /**
+   * Draw a wall slot with the Azul ghost color pattern.
+   */
+  private drawWallSlot(
+    x: number, y: number, width: number, height: number, colorHex: string
+  ): void {
+    const handle = this.renderer.createSprite(`wall-slot:${x}:${y}:${width}:${height}:${colorHex}`);
+    this.renderer.addToStage(handle);
+    this.renderer.setPosition(handle, x, y);
+  }
+
+  /**
+   * Draw a center area background with distinct styling.
+   */
+  private drawCenterBackground(
+    x: number, y: number, width: number, height: number
+  ): void {
+    const handle = this.renderer.createSprite(`center-bg:${x}:${y}:${width}:${height}`);
     this.renderer.addToStage(handle);
     this.renderer.setPosition(handle, x, y);
   }

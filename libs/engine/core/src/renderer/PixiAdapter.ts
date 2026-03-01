@@ -44,11 +44,35 @@ import type {
 
 const MIN_HIT_AREA_PX = 44;
 const TILE_SIZE = 48;
-const FACTORY_CIRCLE_R = 60;
+const FACTORY_CIRCLE_R = 68;
+
+// ─── Color palette (warm + clean) ─────────────────────────────────────────────
+
+const COLORS = {
+  factoryBg:     0xc9ad87,   // warm tan circle
+  factoryStroke:  0xa08060,   // darker tan stroke
+  zoneBg:        0xf0ebe3,   // light warm board background
+  zoneStroke:    0xd0c4b4,   // warm border
+  slotFill:      0xf0ebe3,   // empty slot fill (light, contrasts against tan factory bg)
+  slotStroke:    0xc8bdb0,   // empty slot border
+  centerBg:      0xe8e0d4,   // center area (slightly darker than zone)
+  centerStroke:  0xc8bca8,
+};
 
 /** Convert CSS hex color string (#4A90D9) to numeric hex (0x4A90D9). */
 function cssColorToHex(color: string): number {
   return parseInt(color.replace('#', ''), 16);
+}
+
+/** Lighten a hex color toward white by a factor (0-1). */
+function lightenColor(color: number, factor: number): number {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  const lr = Math.round(r + (255 - r) * factor);
+  const lg = Math.round(g + (255 - g) * factor);
+  const lb = Math.round(b + (255 - b) * factor);
+  return (lr << 16) | (lg << 8) | lb;
 }
 
 // ─── Handle types ─────────────────────────────────────────────────────────────
@@ -135,26 +159,48 @@ export class PixiAdapter implements IRenderer {
       const parts = textureId.split(':');
       const colorStr = parts[2] ?? '#4a90d9';
       const color = cssColorToHex(colorStr);
+      // Tile with rounded corners, subtle shadow, and color
+      g.roundRect(1, 2, TILE_SIZE - 2, TILE_SIZE - 2, 5).fill({ color: lightenColor(color, 0.35) });
       g.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 6).fill({ color });
-      g.stroke({ color: 0x00000020, width: 1 });
+      g.stroke({ color: lightenColor(color, -0.15), width: 1.5 });
     } else if (textureId.startsWith('factory-bg:')) {
-      // Factory background circle — clearly visible
-      g.circle(0, 0, FACTORY_CIRCLE_R).fill({ color: 0xc8c1b7 });
-      g.stroke({ color: 0xa89f94, width: 2 });
+      // Factory background circle — warm tan
+      g.circle(0, 0, FACTORY_CIRCLE_R).fill({ color: COLORS.factoryBg });
+      g.stroke({ color: COLORS.factoryStroke, width: 2.5 });
     } else if (textureId.startsWith('zone-bg:')) {
       // Zone/board background rectangle
       const parts = textureId.split(':');
       const w = parseFloat(parts[3] ?? '200');
       const h = parseFloat(parts[4] ?? '120');
-      g.roundRect(0, 0, w, h, 8).fill({ color: 0xe0dbd3 });
-      g.stroke({ color: 0xb8b0a5, width: 1.5 });
+      g.roundRect(0, 0, w, h, 10).fill({ color: COLORS.zoneBg });
+      g.stroke({ color: COLORS.zoneStroke, width: 1.5 });
+    } else if (textureId.startsWith('center-bg:')) {
+      // Center area background
+      const parts = textureId.split(':');
+      const w = parseFloat(parts[3] ?? '200');
+      const h = parseFloat(parts[4] ?? '60');
+      g.roundRect(0, 0, w, h, 8).fill({ color: COLORS.centerBg });
+      g.stroke({ color: COLORS.centerStroke, width: 1.5 });
+    } else if (textureId.startsWith('wall-slot:')) {
+      // Wall slot with ghost color from Azul pattern
+      // Format: "wall-slot:{x}:{y}:{w}:{h}:{colorHex}"
+      const parts = textureId.split(':');
+      const w = parseFloat(parts[3] ?? '48');
+      const h = parseFloat(parts[4] ?? '48');
+      const wallColorStr = parts[5] ?? '#c0c0c0';
+      const wallColor = cssColorToHex(wallColorStr);
+      // Ghost color: lighten toward white by 55%
+      const ghostFill = lightenColor(wallColor, 0.55);
+      const ghostStroke = lightenColor(wallColor, 0.3);
+      g.roundRect(0, 0, w, h, 4).fill({ color: ghostFill });
+      g.stroke({ color: ghostStroke, width: 1.5 });
     } else if (textureId.startsWith('slot:')) {
       // Empty slot with clear border
       const parts = textureId.split(':');
       const w = parseFloat(parts[3] ?? '48');
       const h = parseFloat(parts[4] ?? '48');
-      g.roundRect(0, 0, w, h, 4).fill({ color: 0xddd8d0 });
-      g.stroke({ color: 0xb0a898, width: 1.5 });
+      g.roundRect(0, 0, w, h, 4).fill({ color: COLORS.slotFill });
+      g.stroke({ color: COLORS.slotStroke, width: 1.5 });
     } else {
       g.rect(0, 0, 48, 48).fill({ color: 0xcccccc });
     }

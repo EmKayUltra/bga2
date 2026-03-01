@@ -91,8 +91,8 @@ export class SceneManager {
     const h = this.container.clientHeight || 800;
 
     // World size matches actual content bounds (factories + 2 stacked player boards)
-    const worldW = 650;
-    const worldH = 1300;
+    const worldW = 640;
+    const worldH = 1200;
 
     // 2. Init renderer
     await this.renderer.init(this.container, {

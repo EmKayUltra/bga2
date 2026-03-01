@@ -160,7 +160,7 @@
 	/* ── Game container ── */
 	.game-container {
 		width: 100%;
-		height: 100vh;
+		height: calc(100vh - 44px);  /* subtract dev toolbar height */
 		background: #fafaf8;   /* light + clean theme */
 		overflow: hidden;       /* viewport handles navigation — no scrollbars */
 		position: relative;

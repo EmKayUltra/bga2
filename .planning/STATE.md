@@ -3,12 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T06:06:09.804Z"
+last_updated: "2026-03-01T06:07:50.901Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
+  # Note: completed_plans reflects 6 of 7 plans in phase 01 complete
 ---
 
 # Project State
@@ -23,30 +24,28 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 1 of 6 (Engine Foundation)
-Plan: 5 of TBD in current phase (01-05 complete)
+Plan: 6 of 7 in current phase (01-06 complete)
 Status: In progress — ready for next plan
-Last activity: 2026-03-01 — Plan 01-05 complete: PixiAdapter (PixiJS v8 IRenderer with viewport/GlowFilter/easeOutBack) and StubRenderer for headless testing
+Last activity: 2026-03-01 — Plan 01-06 complete: C# API server with POST /games/{id}/move, Jint hook executor, EF Core PostgreSQL with xmin optimistic locking. ENG-04 and ENG-05 requirements complete.
 
-Progress: [████░░░░░░] ~25%
+Progress: [█████░░░░░] ~30%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 5 min
-- Total execution time: 23 min
+- Total execution time: 29 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-engine-foundation | 5 | 23 min | 4.6 min |
+| 01-engine-foundation | 6 | 29 min | 4.8 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (4 min), 01-02 (6 min), 01-03 (4 min), 01-04 (4 min), 01-05 (5 min)
+- Last 6 plans: 01-01 (4 min), 01-02 (6 min), 01-03 (4 min), 01-04 (4 min), 01-05 (5 min), 01-06 (6 min)
 - Trend: baseline stable
-
-*Updated after each plan completion*
 
 ## Accumulated Context
 
@@ -81,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 01-engine-foundation]: Removed rootDir from engine-core tsconfig — same fix as azul (01-02): cross-package path alias imports resolve outside rootDir boundary
 - [Phase 01-engine-foundation]: PixiAdapter uses @mszu/pixi-ssr-shim as first import for SvelteKit SSR safety
 - [Phase 01-engine-foundation]: pixi-viewport v6 requires events: app.renderer.events — all game objects in viewport for uniform zoom/pan
+- [Phase 01-engine-foundation]: Jint in-process JavaScript execution over Node.js sidecar for server-side TypeScript hook evaluation — no Docker service overhead, 5s timeout guards runaway hooks
+- [Phase 01-engine-foundation]: Phase 1 permissive move validation — getValidMoves() stubs return [] so all moves accepted; correct behavior for Phase 1, not a bug
+- [Phase 01-engine-foundation]: TypeScript annotation stripping via regex for Phase 1 hooks — minimal, sufficient for Azul stubs; Phase 2 adds proper tsc/esbuild compile step
 
 ### Pending Todos
 
@@ -95,5 +97,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-05-PLAN.md — PixiAdapter (PixiJS v8 IRenderer with viewport/GlowFilter/easeOutBack) and StubRenderer for headless testing. ENG-07, ENG-08, ENG-09 requirements complete.
-Resume file: .planning/phases/01-engine-foundation/01-05-SUMMARY.md
+Stopped at: Completed 01-06-PLAN.md — C# API server with POST /games/{id}/move, Jint hook executor for TypeScript evaluation, EF Core PostgreSQL with JSONB state and xmin optimistic locking. ENG-04 and ENG-05 requirements complete.
+Resume file: .planning/phases/01-engine-foundation/01-06-SUMMARY.md

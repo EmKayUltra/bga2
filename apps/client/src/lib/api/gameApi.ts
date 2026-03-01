@@ -136,7 +136,11 @@ export async function getGameState(sessionId: string): Promise<GameStateResponse
     throw new Error(`Failed to get game state: HTTP ${res.status}`);
   }
 
-  return res.json() as Promise<GameStateResponse>;
+  const raw = await res.json();
+  return {
+    state: typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state,
+    validMoves: raw.validMoves ?? [],
+  };
 }
 
 /**
@@ -169,5 +173,13 @@ export async function submitMove(sessionId: string, move: Move): Promise<MoveRes
     return parseErrorResponse(res);
   }
 
-  return res.json() as Promise<MoveResult>;
+  // Server sends { valid, state (string), validMoves, errors }
+  // Client MoveResult expects { valid, newState (object), validMoves, errors }
+  const raw = await res.json();
+  return {
+    valid: raw.valid,
+    newState: raw.state ? (typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state) : undefined,
+    validMoves: raw.validMoves ?? undefined,
+    errors: raw.errors ?? undefined,
+  };
 }

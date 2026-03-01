@@ -22,7 +22,7 @@ Game engine primitives, renderer abstraction (IRenderer + PixiJS adapter), hiera
 ### Visual Style
 - Styled placeholder art: colored tiles with subtle patterns and gradients. Not raw colored squares, not production art. Should look intentional and polished, not broken.
 - Adaptive board layout: desktop shows all player boards at equal size around the shared area. Mobile puts your player board large at the bottom, opponents' boards smaller above. Layout responds to viewport dimensions.
-- Warm textured aesthetic: warm-toned background with subtle texture (evokes a wooden tabletop), natural tile colors. Physical board game feel — not flat UI, not dark gaming.
+- Light + clean aesthetic: light/white background, bright tile colors. Airy, readable. Not dark gaming, not heavy textures.
 - Phase 1 visual effects (all powered by PixiJS):
   - Scoring particle burst: small particles emit from scored positions
   - Smooth tile slides: tiles animate from source to destination with the snappy overshoot easing
@@ -42,17 +42,12 @@ Game engine primitives, renderer abstraction (IRenderer + PixiJS adapter), hiera
   - `apps/server/` — C# API server (.NET)
   - `apps/infra/` — CDK stack, Docker Compose, deployment scripts (own NX project)
 - **libs/**: shared code
-  - `libs/engine/` — umbrella with feature-sliced sub-libs:
-    - `libs/engine/fsm/` — hierarchical state machine runtime
-    - `libs/engine/renderer/` — IRenderer interface + PixiJS adapter
-    - `libs/engine/hooks/` — hook contract + runner
-    - `libs/engine/types/` — engine-specific types (Zone, Piece, GameState)
+  - `libs/engine/` — engine sub-libs (organization is Claude's discretion)
   - `libs/shared-types/` — cross-cutting types shared by client, server, engine, and games (Move, Player, GameConfig)
-  - `libs/games/azul/` — Azul game library (game plugin pattern)
-  - (future games added as libs/games/{name}/)
-- Each game is an NX library exporting a typed `GameDefinition` interface — type-checked integration with the engine, discoverable via NX project graph
-- Individual game library structure: game.json + hooks.ts + assets/ + tests/ + README — self-documenting with own test suite
-- `nx build game-azul` produces a deployable bundle: compiled hooks.js + game.json + assets packed into a versioned directory ready for S3 upload
+  - `libs/games/azul/` — Azul starts in monorepo for fast iteration while engine API is forming
+- **Games are external packages long-term**: each game is its own git repo using the published engine SDK. Produces a versioned game package (game.json + compiled hooks + assets) deployed to a registry (S3). Platform discovers and loads them at runtime.
+- **Azul starts in monorepo, extracts later**: once engine SDK stabilizes, Azul moves to its own repo — eating our own dog food.
+- Engine SDK published as an npm package from the monorepo: game creators depend on it for types, hook interfaces, and local testing.
 
 ### Database
 - PostgreSQL for all persistence — single database, not DynamoDB (overrides research recommendation)
@@ -63,10 +58,11 @@ Game engine primitives, renderer abstraction (IRenderer + PixiJS adapter), hiera
 
 ### Dev Environment
 - Docker Compose orchestrates the full local stack. `docker compose up` starts everything. No local tool installs beyond Docker.
-- Three services in Docker Compose:
+- Four services in Docker Compose:
   1. SvelteKit frontend (Vite dev server with HMR)
   2. C# API server (dotnet watch for automatic rebuild on file save)
   3. PostgreSQL (local persistence for game state + all relational data)
+  4. LocalStack (local AWS service emulation — S3, AppSync, SES, etc.)
 - Watch mode on both frontend and backend: saving a file triggers automatic rebuild/reload. Frontend via Vite HMR (instant), backend via dotnet watch (slightly slower but fully automatic).
 
 ### Testing Strategy
@@ -75,6 +71,7 @@ Game engine primitives, renderer abstraction (IRenderer + PixiJS adapter), hiera
 - Tests run inside Docker containers for consistency with the dev environment
 
 ### Claude's Discretion
+- Engine libs internal organization (single lib vs feature-sliced sub-libs)
 - Exact PixiJS filter parameters (glow intensity, particle count, animation timing curves)
 - Procedural shape generation algorithm for piece fallback rendering
 - How C# server integrates with NX (nx-dotnet plugin vs custom executors wrapping dotnet CLI)
@@ -119,4 +116,4 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 01-engine-foundation*
-*Context gathered: 2026-02-28*
+*Context gathered: 2026-02-28, updated 2026-03-01*

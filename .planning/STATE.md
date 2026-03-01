@@ -45,9 +45,10 @@ Recent decisions affecting current work:
 - [Init]: Stack confirmed — SvelteKit 2 + Svelte 5, PixiJS 8 behind IRenderer, C# Lambda .NET 8 Native AOT, AppSync Events, PostgreSQL (changed from DynamoDB), AWS CDK
 - [Init]: Phase 5 (AI Toolkit) can parallel-track starting from Phase 3 — game package format is stable after Phase 2
 - [Init]: v1 requirement count is 47 (45 original + 2 infrastructure: INFR-01, INFR-02)
-- [Phase 1]: Docker Compose with 3 services (SvelteKit, C# API, PostgreSQL), NX monorepo (apps/ + libs/), watch mode
-- [Phase 1]: Database changed from DynamoDB to PostgreSQL — relational model fits users/social/matchmaking naturally, game state as JSONB, flexible querying without upfront access pattern design
-- [Phase 1]: NX monorepo with feature-sliced engine (engine/fsm, engine/renderer, engine/hooks, engine/types), game plugin pattern, shared-types lib
+- [Phase 1]: Docker Compose with 4 services (SvelteKit, C# API, PostgreSQL, LocalStack), NX monorepo (apps/ + libs/), watch mode
+- [Phase 1]: Database changed from DynamoDB to PostgreSQL — relational model fits naturally, game state as JSONB
+- [Phase 1]: Games are external packages long-term (separate git repos using engine SDK). Azul starts in monorepo, extracts later.
+- [Phase 1]: Visual style is light + clean (not warm + textured)
 - [Phase 1]: Click-to-select/place interaction, glow + highlight feedback, snappy overshoot animations, speculative select on opponent turns
 - [Phase 1]: Data-heavy game.json + TypeScript hooks, hybrid zones, sprite + procedural fallback pieces
 - [Phase 1]: Warm textured aesthetic (tabletop feel), adaptive layout, styled placeholders
@@ -65,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Phase 1 context updated — added NX monorepo structure, changed database from DynamoDB to PostgreSQL
+Stopped at: Phase 1 context re-verified with user input — corrected visual style (light+clean), added LocalStack, games as external packages model. Ready for /gsd:plan-phase 1
 Resume file: .planning/phases/01-engine-foundation/01-CONTEXT.md

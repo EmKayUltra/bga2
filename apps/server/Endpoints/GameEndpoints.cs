@@ -37,7 +37,8 @@ public static class GameEndpoints
         GameService gameService)
     {
         var gameId = request?.GameId ?? "azul";
-        var response = await gameService.CreateGame(gameId);
+        var playerNames = request?.PlayerNames ?? ["Player 1", "Player 2"];
+        var response = await gameService.CreateGame(gameId, playerNames);
         return Results.Created($"/games/{response.SessionId}/state", response);
     }
 
@@ -81,5 +82,6 @@ public static class GameEndpoints
 /// <summary>
 /// Request body for POST /games — create a new game session.
 /// GameId defaults to "azul" if omitted.
+/// PlayerNames defaults to ["Player 1", "Player 2"] if omitted (2-player game).
 /// </summary>
-public record CreateGameRequest(string? GameId = null);
+public record CreateGameRequest(string? GameId = null, string[]? PlayerNames = null);

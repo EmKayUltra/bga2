@@ -35,6 +35,8 @@ services:
     volumes:
       # Hot-reload: mount server source
       - ../../apps/server:/app/apps/server
+      # Game hook files — server loads hooks.ts at runtime from libs/games/{gameId}/src/hooks.ts
+      - ../../libs:/app/libs
       # Persist NuGet packages across rebuilds
       - server_nuget:/root/.nuget
     environment:

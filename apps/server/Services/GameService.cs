@@ -59,12 +59,14 @@ public class GameService
         };
 
         // Build 100 tiles: 20 of each color, with unique IDs
+        // defId is just the color name (e.g. "blue") — the hook uses this as the color identifier
+        // id is a unique tile identifier (e.g. "tile-blue-0")
         var allTiles = new List<object>();
         foreach (var color in TileColors)
         {
             for (var i = 0; i < 20; i++)
             {
-                allTiles.Add(new { defId = $"tile-{color}", id = $"tile-{color}-{i}" });
+                allTiles.Add(new { defId = color, id = $"tile-{color}-{i}" });
             }
         }
 

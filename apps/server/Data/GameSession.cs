@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace Bga2.Server.Data;
 
 /// <summary>
@@ -32,8 +29,11 @@ public class GameSession
     /// PostgreSQL xmin system column mapped as optimistic concurrency token.
     /// Auto-increments on every row UPDATE — no manual management required.
     /// EF Core will throw DbUpdateConcurrencyException if two writers race.
+    ///
+    /// Note: [Timestamp] attribute is NOT used here — UseXminAsConcurrencyToken()
+    /// in GameDbContext handles the xmin column mapping. Using both would cause
+    /// a duplicate column mapping error at runtime.
     /// </summary>
-    [Timestamp]
     public uint RowVersion { get; set; }
 
     public DateTime CreatedAt { get; set; }

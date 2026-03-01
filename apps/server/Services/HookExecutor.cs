@@ -59,10 +59,14 @@ public class HookExecutor
             engine.Execute(hooksSource);
             engine.Execute(contextSetupJs);
 
-            // Call getValidMoves(ctx) — ctx is now defined in the same engine scope
-            var result = engine.Invoke("getValidMoves", engine.GetValue("ctx"));
+            // Call getValidMoves(ctx) and JSON.stringify the result for reliable serialization.
+            // Using engine.Evaluate with JSON.stringify instead of JsValue.ToString() because
+            // ToString() on a JS array returns "[object Object],[object Object]..." not JSON.
+            engine.Execute("var __validMovesResult = getValidMoves(ctx);");
+            var resultJson = engine.Evaluate("JSON.stringify(__validMovesResult)");
+            var json = resultJson.IsString() ? resultJson.AsString() : null;
 
-            return ParseValidMoves(result);
+            return ParseValidMovesJson(json);
         }
         catch (TimeoutException)
         {
@@ -199,55 +203,103 @@ public class HookExecutor
     /// <summary>
     /// Strips TypeScript-specific syntax from a .ts file to produce valid JavaScript.
     ///
-    /// Handles the Phase 1 Azul hooks stubs which use:
-    ///   - import type { ... } statements
-    ///   - : TypeAnnotation on function parameters
-    ///   - : ReturnType on functions
-    ///   - export const azulHooks: HookFunctions = { ... }
+    /// Handles the full Azul hooks.ts which uses:
+    ///   - import type { ... } / import { ... } statements
+    ///   - interface declarations
+    ///   - type alias declarations
+    ///   - Generic type parameters on functions: function foo&lt;T&gt;(
+    ///   - Return type annotations: ): void {, ): boolean {, ): Array&lt;X&gt; {
+    ///   - Parameter type annotations: (param: Type)
+    ///   - Generic type arguments on expressions: new Set&lt;string&gt;(), Array&lt;X&gt;
+    ///   - Variable declarations with types: const x: Type = ...
+    ///   - Type assertions: as unknown as Type, as Type
+    ///   - export const/function, export default
     ///
-    /// This is intentionally minimal — sufficient for stub hooks, not a general TS parser.
-    /// Phase 2 will replace this with a proper tsc/esbuild compile step.
+    /// This is intentionally for the Azul use case — not a general TS parser.
+    /// Phase 3 will replace this with a proper tsc/esbuild compile step.
     /// </summary>
     internal static string StripTypeScriptAnnotations(string tsSource)
     {
         var js = tsSource;
 
-        // Remove import type {...} from '...' lines
+        // 1. Remove import type {...} from '...' lines
         js = Regex.Replace(js, @"import type \{[^}]*\} from '[^']*';\r?\n?", "", RegexOptions.Multiline);
 
-        // Remove import {...} from '...' lines (regular imports also unusable in Jint)
+        // 2. Remove import {...} from '...' lines (regular imports unusable in Jint)
         js = Regex.Replace(js, @"import \{[^}]*\} from '[^']*';\r?\n?", "", RegexOptions.Multiline);
 
-        // Remove export type { ... } lines
+        // 3. Remove export type { ... } lines
         js = Regex.Replace(js, @"export type \{[^}]*\};\r?\n?", "", RegexOptions.Multiline);
 
-        // Remove interface declarations (multi-line) — interface Foo { ... }
-        js = Regex.Replace(js, @"(export\s+)?interface\s+\w+[^{]*\{[^}]*\}", "", RegexOptions.Singleline);
+        // 4. Remove interface declarations (multi-line) — interface Foo { ... }
+        //    Iteratively remove to handle nesting
+        for (var i = 0; i < 5; i++)
+            js = Regex.Replace(js, @"(export\s+)?interface\s+\w+[^{]*\{[^{}]*\}", "", RegexOptions.Singleline);
 
-        // Remove type alias declarations — type Foo = ...;
+        // 5. Remove type alias declarations — type Foo = ...;
         js = Regex.Replace(js, @"(export\s+)?type\s+\w+\s*=\s*[^;]+;", "", RegexOptions.Multiline);
 
-        // Remove : TypeAnnotation from function parameters — (param: Type) -> (param)
-        // Also handles optional params: (param?: Type) -> (param)
-        // Also handles default values: (param: Type = default) -> (param = default)
-        // Pattern: word char(s) followed by ?: and then a type annotation (up to , or ) or =)
-        js = Regex.Replace(js, @"(\w+)\??\s*:\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]|&\s,\.']*(?=[,)=])", "$1");
+        // 6. Remove generic type parameters from function declarations: function foo<T>( -> function foo(
+        js = Regex.Replace(js, @"((?:function|export function)\s+\w+)\s*<[^>]*>(?=\s*\()", "$1");
 
-        // Remove return type annotations from functions — ): Type { -> ) {
-        js = Regex.Replace(js, @"\)\s*:\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]|&\s,\.]*\s*\{", ") {");
+        // 7. Remove complex return type annotations that include generics/object types
+        //    Heuristic: ): ReturnType { -> ) {
+        //    Key constraint: match within a single line — use [ ] (literal space) instead of \s
+        //    inside the character class to prevent cross-line matching.
+        //    The return type annotation ends at the { that opens the function body.
+        //    Character class includes { } for inline object types like Array<{id:string}>.
+        //    Greedy match backtracks to find the last { on the line.
+        js = Regex.Replace(js, @"\)[ \t]*:[ \t]*(?:void|boolean|number|string|never|null|undefined|[A-Za-z_$][A-Za-z0-9_$<>;\[\]|& ,.\{\}':]*)[ \t]*\{",
+            ") {");
 
-        // Remove "export const name: Type = " -> "var name = " (for azulHooks: HookFunctions)
-        // Also handles "export const name = "
+        // 8. Remove "as unknown as Type" type assertions — order matters, do complex first
+        //    Handles: as unknown as AzulPlayerData, as unknown as Record, etc.
+        js = Regex.Replace(js, @"\s+as\s+unknown\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*", "");
+
+        // 9. Remove "as Type" and "as Generic<Params>" type assertions
+        //    Handles: as string, as number, as Record<string, unknown>, as Record
+        //    Use iterative approach: first strip generics from type assertions, then strip the assertion
+        //    Pass 1: strip "as Type<...>" where the generic can contain word chars, spaces, commas
+        js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*\s*<[A-Za-z0-9_$\s,\[\]|&.\'{}:]*>", "");
+        //    Pass 2: strip plain "as Type" assertions
+        js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*(?=[;\)\]\},\s\[])", "");
+
+        // 10. Remove variable type annotations: const x: Type = / let x: Type = / var x: Type =
+        //     Handle complex types including Array<{ id: string; defId: string }> on a single line.
+        //     Use [ \t] (space/tab only) instead of \s to prevent cross-line matching.
+        //     Greedy match backtracks to find the = on the same line.
+        //     Character class includes : for inline object types like Array<{ id: string }>
+        js = Regex.Replace(js, @"((?:const|let|var)[ \t]+\w+)[ \t]*:[ \t]*[A-Za-z_$][A-Za-z0-9_$<>;\[\]|&:{ },.\\']*[ \t]*(?==)", "$1");
+
+        // 11. Remove generic type arguments from new expressions: new Set<string>() -> new Set()
+        //     And from Array.from<X>( -> Array.from(
+        //     Use iterative replacement for nested angle brackets (up to 4 passes)
+        for (var i = 0; i < 4; i++)
+            js = Regex.Replace(js, @"([A-Za-z_$][A-Za-z0-9_$.]*)\s*<[A-Za-z0-9_$\s,\[\]|&\.'{}:]*>(?=[()\[\]{}\s;,])", "$1");
+
+        // 12a. Remove complex param type annotations like "tiles: Array<{ id: string; ... }>"
+        //      These appear in multiline function signatures. Match specifically: identifier: Type<{...}>
+        //      followed by , or ) at end of line (param separator).
+        //      Must be done BEFORE the simpler step 12b to avoid partial matches.
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]]*\s*<\{[^}]*\}>(?=\s*[,)])", "$1");
+
+        // 12b. Remove : TypeAnnotation from function parameters — (param: Type) -> (param)
+        //      Also handles optional params: (param?: Type) -> (param)
+        //      Also handles default values: (param: Type = default) -> (param = default)
+        //      CRITICAL: Only match types that start with uppercase (PascalCase types), known primitives,
+        //      or typeof expressions. This prevents stripping object literal properties like source: sourceId.
+        //      Primitives can have array suffixes (boolean[][], string[], etc.)
+        //      Lookahead uses \s* to handle trailing whitespace/newline before , ) = in multiline signatures.
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*(?:(?:number|string|boolean|void|never|null|undefined|any)(?:\[\])*|typeof\s+\w+(?:\.\w+)*|[A-Z][A-Za-z0-9_$<>\[\]|& \t\.']*)\s*(?=\s*[,)=])", "$1");
+
+        // 13. Remove "export const name: Type = " -> "var name = "
         js = Regex.Replace(js, @"export const (\w+)\s*(?::\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]|&\s,\.]*\s*)?=\s*", "var $1 = ");
 
-        // Remove remaining "export function" -> "function"
+        // 14. Remove remaining "export function" -> "function"
         js = Regex.Replace(js, @"export function", "function");
 
-        // Remove "export default" -> ""
+        // 15. Remove "export default" -> ""
         js = Regex.Replace(js, @"export default\s+", "");
-
-        // Remove underscore-prefixed params that start with _ (TypeScript unused params)
-        // Leave them as-is — they're valid JS too, just with _ prefix
 
         return js;
     }
@@ -298,18 +350,13 @@ public class HookExecutor
         return $"var move = JSON.parse('{EscapeForJsString(moveJson)}');";
     }
 
-    private List<ValidMove> ParseValidMoves(JsValue result)
+    private List<ValidMove> ParseValidMovesJson(string? json)
     {
-        if (result.IsNull() || result.IsUndefined())
+        if (string.IsNullOrEmpty(json) || json == "null" || json == "undefined")
             return [];
 
         try
         {
-            // Serialize the Jint result back to JSON, then deserialize as C# objects
-            var json = result.ToString();
-            if (string.IsNullOrEmpty(json) || json == "undefined")
-                return [];
-
             var moves = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
@@ -325,7 +372,7 @@ public class HookExecutor
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse getValidMoves result");
+            _logger.LogWarning(ex, "Failed to parse getValidMoves result: {Json}", json?[..Math.Min(200, json?.Length ?? 0)]);
             return [];
         }
     }

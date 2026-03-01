@@ -45,6 +45,16 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// ─── Database setup ────────────────────────────────────────────────────────────
+// Ensure the DB schema exists — creates tables if they don't exist.
+// EnsureCreated is appropriate for development/prototype; will be replaced with
+// proper migrations before production deployment.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<GameDbContext>();
+    db.Database.EnsureCreated();
+}
+
 // ─── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {

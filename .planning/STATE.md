@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-last_updated: "2026-03-01T16:08:04Z"
+status: unknown
+last_updated: "2026-03-01T16:39:50.294Z"
 progress:
-  total_phases: 6
+  total_phases: 2
   completed_phases: 1
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 2 — Azul + First Playable (Plan 01 complete, 3 remaining)
+**Current focus:** Phase 2 — Azul + First Playable (Plan 02 complete, 2 remaining)
 
 ## Current Position
 
 Phase: 2 of 6 (Azul + First Playable)
-Plan: 1 of 4 complete — 3 remaining
-Status: Phase 2 in progress — hooks logic done, server/client wiring next
-Last activity: 2026-03-01 — Phase 2 Plan 01 complete (Azul hook logic: 32 tests passing)
+Plan: 2 of 4 complete — 2 remaining
+Status: Phase 2 in progress — hooks + server wired, client integration next
+Last activity: 2026-03-01 — Phase 2 Plan 02 complete (server integration: CreateGame, HookExecutor ctx.players, onRoundEnd)
 
-Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 1/4 in Phase 2)
+Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 2/4 in Phase 2)
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 1/4 in Phase
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7 | 45 min | 6.4 min |
-| 02-azul-first-playable | 1/4 | 8 min | 8 min |
+| 02-azul-first-playable | 2/4 | 35 min | 17.5 min |
 
 ## Accumulated Context
 
@@ -59,6 +59,10 @@ Recent decisions affecting current work:
 - [Phase 2-01]: Azul hooks: first-player token holder must be saved before floor-clearing step or detection is lost
 - [Phase 2-01]: Azul hooks: center-pick leftover tiles must be put back into center.pieces after zone clear
 - [Phase 2-01]: Azul hooks: vitest.config.ts + project.json configFile required for NX @nx/vite:test executor to find test files
+- [Phase 02]: BuildHookContextScript returns JS string not JsValue — context must be in same Jint engine scope as hook functions
+- [Phase 02]: TypeScript param annotation stripping restricted to PascalCase types + known primitives to avoid mangling object literals
+- [Phase 02]: tile defId uses plain color name (blue not tile-blue) to match WALL_PATTERN constants in hooks.ts
+- [Phase 02]: JSON.stringify inside Jint engine for valid moves — JsValue.ToString() returns JS .toString() not JSON
 
 ### Pending Todos
 
@@ -79,12 +83,12 @@ None yet.
 ## Phase 2 Status
 
 - Plan 01 (hooks.ts): COMPLETE — 32 tests passing, tsc clean
-- Plan 02: next — server integration (GameService.cs onRoundEnd trigger, HookExecutor ctx.players fix)
+- Plan 02 (server integration): COMPLETE — CreateGame with proper state, HookExecutor ctx.players, onRoundEnd auto-trigger, 84+ valid moves
 - Plan 03: next — client wiring (SceneManager multi-player, turn UI)
 - Plan 04: next — routes and game creation (landing page, game list, CreateGame API)
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 02-01-PLAN.md (Azul hooks implementation)
-Resume file: .planning/phases/02-azul-first-playable/02-02-PLAN.md
+Stopped at: Completed 02-02-PLAN.md (server integration: CreateGame, HookExecutor ctx.players fix, onRoundEnd)
+Resume file: .planning/phases/02-azul-first-playable/02-03-PLAN.md

@@ -75,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Phase 1 complete, Phase 2 ready to plan
-Resume file: none
+Stopped at: Phase 2 context gathered, ready to plan
+Resume file: .planning/phases/02-azul-first-playable/02-CONTEXT.md

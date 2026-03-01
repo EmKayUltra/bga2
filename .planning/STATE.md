@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-01T05:57:32.310Z"
+progress:
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 7
+  completed_plans: 2
+---
+
 # Project State
 
 ## Project Reference
@@ -10,28 +23,28 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 1 of 6 (Engine Foundation)
-Plan: 1 of TBD in current phase (01-01 complete)
+Plan: 2 of TBD in current phase (01-02 complete)
 Status: In progress — ready for next plan
-Last activity: 2026-03-01 — Plan 01-01 complete: NX monorepo scaffold + Docker Compose 4-service stack
+Last activity: 2026-03-01 — Plan 01-02 complete: Engine type contracts (IRenderer, GameConfig, HookFunctions) and Azul game.json + hooks stubs
 
-Progress: [█░░░░░░░░░] ~5%
+Progress: [██░░░░░░░░] ~10%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 4 min
-- Total execution time: 4 min
+- Total plans completed: 2
+- Average duration: 5 min
+- Total execution time: 10 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-engine-foundation | 1 | 4 min | 4 min |
+| 01-engine-foundation | 2 | 10 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (4 min)
-- Trend: baseline established
+- Last 5 plans: 01-01 (4 min), 01-02 (6 min)
+- Trend: baseline stable
 
 *Updated after each plan completion*
 
@@ -56,6 +69,9 @@ Recent decisions affecting current work:
 - [01-01]: Docker Compose build context at workspace root — enables Dockerfiles to COPY from any workspace path including libs/
 - [01-01]: NX projects use explicit project.json (not inference) — full visibility and control over all 6 project targets
 - [01-01]: npm workspaces use plain version range * not workspace: protocol — workspace: is pnpm/yarn only
+- [Phase 01-02]: ZoneDef and PieceDef kept in their own files rather than co-located in game-config.ts to avoid export confusion in barrel index.ts
+- [Phase 01-02]: Azul tsconfig drops rootDir — cross-package @bga2/shared-types imports fail rootDir boundary check; monorepo libs importing from sibling packages should not restrict rootDir
+- [Phase 01-02]: tsconfig.test.json pattern for type-contract tests — noUnusedLocals flags type alias declarations in test bodies; separate test tsconfig relaxes the rule
 
 ### Pending Todos
 
@@ -70,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-01-PLAN.md — NX monorepo scaffold + Docker Compose 4-service stack. INFR-01 and INFR-02 requirements complete.
-Resume file: .planning/phases/01-engine-foundation/01-01-SUMMARY.md
+Stopped at: Completed 01-02-PLAN.md — Engine type contracts (IRenderer, GameConfig, HookFunctions, Move, GameState) and Azul game.json + hooks.ts stubs. ENG-06 and ENG-10 requirements complete.
+Resume file: .planning/phases/01-engine-foundation/01-02-SUMMARY.md

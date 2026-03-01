@@ -1,44 +1,70 @@
-// @bga2/shared-types
-// Cross-cutting types shared by client, server, engine, and games
-// Phase 1 stub — core types defined in subsequent plans
+/**
+ * @bga2/shared-types — Cross-cutting type contracts
+ *
+ * Barrel export for all shared TypeScript interfaces and type aliases.
+ * Every consumer (client, server, engine, games) imports from this package.
+ *
+ * Organization:
+ *   renderer    — IRenderer interface, handle types, options
+ *   game-config — GameConfig, ZoneDef, PieceDef, TurnOrder, HookRef
+ *   zones       — ZoneType, ZoneDef, ZoneRenderConfig, ZoneState
+ *   pieces      — PieceType, PieceDef, PieceFallback, PieceState
+ *   hooks       — HookContext, HookFunctions, PlayerInfo
+ *   moves       — Move, ValidMove, MoveResult
+ *   state       — GameState, PlayerState, ZoneState
+ */
 
-// Player types
-export interface Player {
-  id: string;
-  displayName: string;
-}
+// Renderer
+export type {
+  IRenderer,
+  ISpriteHandle,
+  IContainerHandle,
+  IViewportHandle,
+  ISceneHandle,
+  RendererOptions,
+  AnimateOptions,
+  ViewportOptions,
+} from './renderer.js';
 
-// Move types
-export interface Move {
-  type: string;
-  playerId: string;
-  payload: Record<string, unknown>;
-  timestamp?: number;
-}
+// Game config
+export type {
+  GameConfig,
+  TurnOrder,
+  HookRef,
+} from './game-config.js';
 
-// Game configuration
-export interface GameConfig {
-  gameId: string;
-  gameName: string;
-  players: Player[];
-  settings: Record<string, unknown>;
-}
+// Zones
+export type {
+  ZoneType,
+  ZoneDef,
+  ZoneRenderConfig,
+  ZoneState,
+} from './zones.js';
 
-// Game state envelope — game-specific state is in `state`
-export interface GameStateEnvelope {
-  matchId: string;
-  gameId: string;
-  version: number;
-  turn: number;
-  currentPlayerId: string;
-  state: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-}
+// Pieces
+export type {
+  PieceType,
+  PieceDef,
+  PieceFallback,
+  PieceState,
+} from './pieces.js';
 
-// API response wrapper
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  success: boolean;
-}
+// Hooks
+export type {
+  HookContext,
+  HookFunctions,
+  PlayerInfo,
+} from './hooks.js';
+
+// Moves
+export type {
+  Move,
+  ValidMove,
+  MoveResult,
+} from './moves.js';
+
+// State
+export type {
+  GameState,
+  PlayerState,
+} from './state.js';

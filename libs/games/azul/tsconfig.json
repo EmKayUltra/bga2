@@ -3,10 +3,9 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": false,
+    "declarationMap": false,
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true
   },
   "include": ["src/**/*"],

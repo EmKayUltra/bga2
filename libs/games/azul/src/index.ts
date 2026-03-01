@@ -1,11 +1,12 @@
-// @bga2/games-azul
-// Azul board game implementation using the BGA2 engine SDK
-// Phase 1 stub — full implementation in Phase 2
+/**
+ * @bga2/games-azul — Azul board game implementation
+ *
+ * Phase 1: Game definition (game.json) and hook stubs.
+ * Phase 2: Full Azul game logic (tile placement, scoring, win conditions).
+ */
 
-export {};
+// Hook implementations (satisfy HookFunctions contract)
+export { getValidMoves, onMove, onRoundEnd, azulHooks } from './hooks.js';
 
-// TODO Phase 2 (Azul):
-// - game.json game definition
-// - Azul-specific hook implementations (tile placement rules, scoring)
-// - Factory display and player board zone definitions
-// - Win condition detection
+// Game definition path constant — use this to load game.json at runtime
+export const AZUL_GAME_JSON_PATH = new URL('../game.json', import.meta.url).pathname;

@@ -1,0 +1,185 @@
+{
+  "id": "azul",
+  "version": "1.0.0",
+  "title": "Azul",
+  "players": {
+    "min": 2,
+    "max": 4
+  },
+  "zones": [
+    {
+      "id": "factory-0",
+      "type": "stack",
+      "capacity": 4,
+      "owner": "shared",
+      "position": { "x": 100, "y": 80 },
+      "render": { "shape": "circle", "size": { "width": 100, "height": 100 } }
+    },
+    {
+      "id": "factory-1",
+      "type": "stack",
+      "capacity": 4,
+      "owner": "shared",
+      "position": { "x": 220, "y": 80 },
+      "render": { "shape": "circle", "size": { "width": 100, "height": 100 } }
+    },
+    {
+      "id": "factory-2",
+      "type": "stack",
+      "capacity": 4,
+      "owner": "shared",
+      "position": { "x": 340, "y": 80 },
+      "render": { "shape": "circle", "size": { "width": 100, "height": 100 } }
+    },
+    {
+      "id": "factory-3",
+      "type": "stack",
+      "capacity": 4,
+      "owner": "shared",
+      "position": { "x": 160, "y": 180 },
+      "render": { "shape": "circle", "size": { "width": 100, "height": 100 } }
+    },
+    {
+      "id": "factory-4",
+      "type": "stack",
+      "capacity": 4,
+      "owner": "shared",
+      "position": { "x": 280, "y": 180 },
+      "render": { "shape": "circle", "size": { "width": 100, "height": 100 } }
+    },
+    {
+      "id": "center",
+      "type": "stack",
+      "owner": "shared",
+      "position": { "x": 220, "y": 300 },
+      "render": { "shape": "rect", "size": { "width": 200, "height": 120 } }
+    },
+    {
+      "id": "player-pattern-line-1",
+      "type": "grid",
+      "rows": 1,
+      "cols": 1,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "player-pattern-line-2",
+      "type": "grid",
+      "rows": 1,
+      "cols": 2,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "player-pattern-line-3",
+      "type": "grid",
+      "rows": 1,
+      "cols": 3,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "player-pattern-line-4",
+      "type": "grid",
+      "rows": 1,
+      "cols": 4,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "player-pattern-line-5",
+      "type": "grid",
+      "rows": 1,
+      "cols": 5,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "player-wall",
+      "type": "grid",
+      "rows": 5,
+      "cols": 5,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "player-floor-line",
+      "type": "grid",
+      "rows": 1,
+      "cols": 7,
+      "owner": "player",
+      "render": { "cellSize": 48 }
+    },
+    {
+      "id": "bag",
+      "type": "deck",
+      "owner": "shared"
+    },
+    {
+      "id": "lid",
+      "type": "discard",
+      "owner": "shared"
+    }
+  ],
+  "pieces": [
+    {
+      "id": "tile-blue",
+      "type": "tile",
+      "fallback": {
+        "shape": "square",
+        "color": "#4A90D9",
+        "label": "B"
+      }
+    },
+    {
+      "id": "tile-yellow",
+      "type": "tile",
+      "fallback": {
+        "shape": "square",
+        "color": "#F5C542",
+        "label": "Y"
+      }
+    },
+    {
+      "id": "tile-red",
+      "type": "tile",
+      "fallback": {
+        "shape": "square",
+        "color": "#E74C3C",
+        "label": "R"
+      }
+    },
+    {
+      "id": "tile-black",
+      "type": "tile",
+      "fallback": {
+        "shape": "square",
+        "color": "#2C3E50",
+        "label": "K"
+      }
+    },
+    {
+      "id": "tile-teal",
+      "type": "tile",
+      "fallback": {
+        "shape": "square",
+        "color": "#1ABC9C",
+        "label": "T"
+      }
+    },
+    {
+      "id": "first-player-token",
+      "type": "token",
+      "fallback": {
+        "shape": "circle",
+        "color": "#FFFFFF",
+        "label": "1"
+      }
+    }
+  ],
+  "turnOrder": "sequential",
+  "hooks": {
+    "file": "hooks.ts",
+    "events": ["getValidMoves", "onMove", "onRoundEnd"]
+  }
+}

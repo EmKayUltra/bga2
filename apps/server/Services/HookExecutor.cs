@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Bga2.Server.Services;
 
 /// <summary>
-/// Executes TypeScript game hook functions (getValidMoves, onMove) via Jint.
+/// Executes TypeScript game hook functions (getValidMoves, onMove, onRoundEnd) via Jint.
 ///
 /// Phase 1 approach: strip TypeScript type annotations from hooks.ts to produce
 /// valid JavaScript, then execute in Jint. Phase 2 will use a proper tsc compile step.
@@ -52,14 +52,15 @@ public class HookExecutor
         {
             var engine = CreateEngine();
 
-            // Build the hook context matching HookContext from shared-types
-            var ctx = BuildHookContext(gameStateJson, currentPlayer, round);
+            // Build context setup script — executes on the SAME engine as the hooks
+            var contextSetupJs = BuildHookContextScript(gameStateJson);
 
             engine.Execute(JsShims);
             engine.Execute(hooksSource);
+            engine.Execute(contextSetupJs);
 
-            // Call getValidMoves(ctx)
-            var result = engine.Invoke("getValidMoves", ctx);
+            // Call getValidMoves(ctx) — ctx is now defined in the same engine scope
+            var result = engine.Invoke("getValidMoves", engine.GetValue("ctx"));
 
             return ParseValidMoves(result);
         }
@@ -96,14 +97,16 @@ public class HookExecutor
         {
             var engine = CreateEngine();
 
-            var ctx = BuildHookContext(gameStateJson, currentPlayer, round);
-            var moveJs = BuildMoveObject(move);
+            var contextSetupJs = BuildHookContextScript(gameStateJson);
+            var moveJs = BuildMoveScript(move);
 
             engine.Execute(JsShims);
             engine.Execute(hooksSource);
+            engine.Execute(contextSetupJs);
+            engine.Execute(moveJs);
 
             // onMove mutates ctx.state in place
-            engine.Invoke("onMove", ctx, moveJs);
+            engine.Invoke("onMove", engine.GetValue("ctx"), engine.GetValue("move"));
 
             // Extract updated state from ctx.state
             var stateValue = engine.Evaluate("JSON.stringify(ctx.state)");
@@ -120,6 +123,53 @@ public class HookExecutor
         catch (Exception ex)
         {
             _logger.LogError(ex, "onMove hook execution failed");
+            return (gameStateJson, [$"Hook execution error: {ex.Message}"]);
+        }
+    }
+
+    /// <summary>
+    /// Executes the onRoundEnd hook to process wall-tiling, scoring, and factory refill.
+    /// Called automatically by ValidateAndApplyMove when the phase transitions to "wall-tiling".
+    /// </summary>
+    /// <param name="hooksSource">JavaScript source</param>
+    /// <param name="gameStateJson">Current game state as JSON string (phase = wall-tiling)</param>
+    /// <param name="currentPlayer">Current player id (for context, may be overridden by onRoundEnd)</param>
+    /// <param name="round">Current round number</param>
+    /// <returns>Updated game state JSON after round-end processing, or original if errors</returns>
+    public (string NewStateJson, List<string> Errors) OnRoundEnd(
+        string hooksSource,
+        string gameStateJson,
+        string currentPlayer,
+        int round)
+    {
+        try
+        {
+            var engine = CreateEngine();
+
+            var contextSetupJs = BuildHookContextScript(gameStateJson);
+
+            engine.Execute(JsShims);
+            engine.Execute(hooksSource);
+            engine.Execute(contextSetupJs);
+
+            // onRoundEnd mutates ctx.state in place
+            engine.Invoke("onRoundEnd", engine.GetValue("ctx"));
+
+            // Extract updated state from ctx.state
+            var stateValue = engine.Evaluate("JSON.stringify(ctx.state)");
+            var newStateJson = stateValue.IsString() ? stateValue.AsString() : gameStateJson;
+
+            return (newStateJson, []);
+        }
+        catch (TimeoutException)
+        {
+            var msg = $"onRoundEnd execution timed out after {JintTimeout.TotalSeconds}s";
+            _logger.LogWarning("{Message}", msg);
+            return (gameStateJson, [msg]);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "onRoundEnd hook execution failed");
             return (gameStateJson, [$"Hook execution error: {ex.Message}"]);
         }
     }
@@ -211,35 +261,41 @@ public class HookExecutor
         });
     }
 
-    private JsValue BuildHookContext(string gameStateJson, string currentPlayer, int round)
+    /// <summary>
+    /// Builds a JavaScript string that sets up the hook context (ctx) as a global variable.
+    ///
+    /// IMPORTANT: Returns a JS string, NOT a JsValue. The caller must execute this string
+    /// on their own Jint engine so that ctx lives in the same scope as the hook functions.
+    ///
+    /// ctx.players is populated from state.players — each with id, name, and index.
+    /// ctx.currentPlayer is derived from state.players[state.currentPlayerIndex].id.
+    /// ctx.round is read from state.round.
+    /// </summary>
+    internal static string BuildHookContextScript(string gameStateJson)
     {
-        // We expose ctx as a global so onMove can mutate ctx.state
-        // and we can read it back after execution
-        var contextSetup = $$"""
+        var escapedJson = EscapeForJsString(gameStateJson);
+        return $$"""
+            var _stateJson = '{{escapedJson}}';
+            var _state = JSON.parse(_stateJson);
             var ctx = {
-                state: JSON.parse('{{EscapeForJsString(gameStateJson)}}'),
-                currentPlayer: '{{EscapeForJsString(currentPlayer)}}',
-                round: {{round}},
-                players: []
+                state: _state,
+                currentPlayer: (_state.players && _state.players.length > 0 && typeof _state.currentPlayerIndex === 'number')
+                    ? _state.players[_state.currentPlayerIndex].id
+                    : (_state.currentPlayer || 'player-0'),
+                round: _state.round || 1,
+                players: (_state.players || []).map(function(p, i) { return { id: p.id, name: p.name, index: i }; })
             };
             """;
-
-        var engine = CreateEngine();
-        engine.Execute(contextSetup);
-
-        return engine.GetValue("ctx");
     }
 
-    private JsValue BuildMoveObject(MoveRequest move)
+    private static string BuildMoveScript(MoveRequest move)
     {
         var moveJson = JsonSerializer.Serialize(move, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
-        var engine = CreateEngine();
-        engine.Execute($"var move = JSON.parse('{EscapeForJsString(moveJson)}');");
-        return engine.GetValue("move");
+        return $"var move = JSON.parse('{EscapeForJsString(moveJson)}');";
     }
 
     private List<ValidMove> ParseValidMoves(JsValue result)

@@ -70,6 +70,11 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AIGC-06**: Human review gate with structured checklist and discrepancy report
 - [ ] **AIGC-07**: Package and deploy game bundle to S3
 
+### Infrastructure
+
+- [ ] **INFR-01**: All services build and run via Docker containers — no local tool dependencies beyond Docker
+- [ ] **INFR-02**: Docker Compose orchestrates the full local development stack (frontend, API, database, etc.)
+
 ### Platform
 
 - [ ] **PLAT-01**: User can sign up, log in, and maintain session across browser refresh
@@ -126,13 +131,59 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (Populated during roadmap creation) | | |
+| ENG-01 | Phase 1 | Pending |
+| ENG-02 | Phase 1 | Pending |
+| ENG-03 | Phase 1 | Pending |
+| ENG-04 | Phase 1 | Pending |
+| ENG-05 | Phase 1 | Pending |
+| ENG-06 | Phase 1 | Pending |
+| ENG-07 | Phase 1 | Pending |
+| ENG-08 | Phase 1 | Pending |
+| ENG-09 | Phase 1 | Pending |
+| ENG-10 | Phase 1 | Pending |
+| INFR-01 | Phase 1 | Pending |
+| INFR-02 | Phase 1 | Pending |
+| AZUL-01 | Phase 2 | Pending |
+| AZUL-02 | Phase 2 | Pending |
+| AZUL-03 | Phase 2 | Pending |
+| AZUL-04 | Phase 2 | Pending |
+| AZUL-05 | Phase 2 | Pending |
+| PLAT-01 | Phase 2 | Pending |
+| MULT-01 | Phase 3 | Pending |
+| MULT-03 | Phase 3 | Pending |
+| MULT-04 | Phase 3 | Pending |
+| MULT-05 | Phase 3 | Pending |
+| MULT-06 | Phase 3 | Pending |
+| SOCL-01 | Phase 3 | Pending |
+| SOCL-02 | Phase 3 | Pending |
+| SOCL-03 | Phase 3 | Pending |
+| SOCL-04 | Phase 3 | Pending |
+| SOCL-05 | Phase 3 | Pending |
+| SOCL-06 | Phase 3 | Pending |
+| PLAT-02 | Phase 3 | Pending |
+| MULT-02 | Phase 4 | Pending |
+| NOTF-01 | Phase 4 | Pending |
+| NOTF-02 | Phase 4 | Pending |
+| NOTF-03 | Phase 4 | Pending |
+| NOTF-04 | Phase 4 | Pending |
+| AIGC-01 | Phase 5 | Pending |
+| AIGC-02 | Phase 5 | Pending |
+| AIGC-03 | Phase 5 | Pending |
+| AIGC-04 | Phase 5 | Pending |
+| AIGC-05 | Phase 5 | Pending |
+| AIGC-06 | Phase 5 | Pending |
+| AIGC-07 | Phase 5 | Pending |
+| PEXP-01 | Phase 6 | Pending |
+| PEXP-02 | Phase 6 | Pending |
+| PEXP-03 | Phase 6 | Pending |
+| PEXP-04 | Phase 6 | Pending |
+| PLAT-03 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 38 total
-- Mapped to phases: 0
-- Unmapped: 38
+- v1 requirements: 47 total
+- Mapped to phases: 47
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 after roadmap creation — traceability complete*

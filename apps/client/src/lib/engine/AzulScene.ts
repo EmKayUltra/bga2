@@ -23,7 +23,6 @@
 import type {
   IRenderer,
   ISpriteHandle,
-  IContainerHandle,
   ValidMove,
 } from '@bga2/shared-types';
 import type { RuntimeGameModel } from '@bga2/engine-core';
@@ -38,11 +37,6 @@ const FACTORY_SPACING = 140;      // px — center-to-center distance between fa
 const BOARD_PADDING = 20;         // px — padding inside player board containers
 
 // Colors
-const FACTORY_BG_COLOR = '#e8e4dd';        // light warm gray circle
-const CENTER_BG_COLOR = '#f0ece5';          // slightly different center area
-const BOARD_BG_COLOR = '#faf9f7';           // player board background
-const WALL_EMPTY_COLOR = '#e9e4dc';         // empty wall slot color
-const FLOOR_EMPTY_COLOR = '#f5f0ea';        // empty floor slot color
 const SELECTION_GLOW = 0x4a90ff;            // blue selection glow
 const VALID_MOVE_GLOW = 0x22c55e;           // green valid-move highlight
 
@@ -103,26 +97,27 @@ export class AzulScene {
       (z) => z.id.startsWith('factory-')
     );
 
-    const startX = 100;
+    const startX = 130;
     const startY = 80;
 
     factoryZones.forEach((zone, i) => {
-      // Arrange factories in two rows
+      // Arrange factories in two rows: 3 on top, 2 on bottom centered
       const row = Math.floor(i / 3);
       const col = i % 3;
       const cx = startX + col * FACTORY_SPACING + (row === 1 ? FACTORY_SPACING / 2 : 0);
-      const cy = startY + row * (FACTORY_RADIUS * 2 + 20);
+      const cy = startY + row * (FACTORY_RADIUS * 2 + 30);
 
       // Draw factory background circle (styled placeholder)
       this.drawFactoryBackground(cx, cy);
 
       // Render pieces in this factory zone (2x2 layout)
       const pieces = zone.getPieces();
+      const gridW = 2 * TILE_SIZE + TILE_GAP;
       pieces.forEach((piece, pi) => {
         const tileCol = pi % 2;
         const tileRow = Math.floor(pi / 2);
-        const tx = cx - TILE_SIZE / 2 - TILE_GAP / 2 + tileCol * (TILE_SIZE + TILE_GAP);
-        const ty = cy - TILE_SIZE / 2 - TILE_GAP / 2 + tileRow * (TILE_SIZE + TILE_GAP);
+        const tx = cx - gridW / 2 + tileCol * (TILE_SIZE + TILE_GAP);
+        const ty = cy - gridW / 2 + tileRow * (TILE_SIZE + TILE_GAP);
         this.renderPiece(piece, tx, ty);
       });
 
@@ -140,13 +135,13 @@ export class AzulScene {
     const centerZone = this.model.zones.get('center');
     if (!centerZone) return;
 
-    const cx = 400;
-    const cy = 300;
-    const width = 220;
-    const height = 120;
+    const cx = 310;
+    const cy = 330;
+    const width = 260;
+    const height = 60;
 
     // Draw center area background
-    this.drawZoneBackground(cx - width / 2, cy - height / 2, width, height, CENTER_BG_COLOR, 'Center');
+    this.drawZoneBackground(cx - width / 2, cy - height / 2, width, height, '', 'Center');
 
     // Render tiles in center (flowing left-to-right)
     const pieces = centerZone.getPieces();
@@ -162,15 +157,18 @@ export class AzulScene {
    * Each board shows: pattern lines (5 rows), wall (5x5 grid), floor line (1x7).
    */
   private renderPlayerBoards(): void {
-    const boardWidth = 320;
-    const boardHeight = 340;
-    const boardStartY = 450;
+    // pattern (5 cells) + gap + wall (5 cells) = 10*52 + 16 = 536, + 2*padding = 576
+    const CELL = TILE_SIZE + TILE_GAP; // 52
+    const boardWidth = 10 * CELL + 16 + 2 * BOARD_PADDING;  // 576
+    // 5 pattern rows + gap + floor row + padding + label
+    const boardHeight = 6 * CELL + 24 + 24 + 2 * BOARD_PADDING; // ~420
+    const boardStartY = 420;
 
-    // Phase 1: render two player board slots side by side
+    // Phase 1: render two player boards stacked vertically (fits better)
     const playerNames = ['Player 1', 'Player 2'];
     playerNames.forEach((name, i) => {
-      const bx = 80 + i * (boardWidth + 40);
-      const by = boardStartY;
+      const bx = 30;
+      const by = boardStartY + i * (boardHeight + 20);
       this.renderPlayerBoard(bx, by, boardWidth, boardHeight, name, i);
     });
   }
@@ -187,7 +185,7 @@ export class AzulScene {
     playerIndex: number
   ): void {
     // Board background
-    this.drawZoneBackground(bx, by, width, height, BOARD_BG_COLOR, playerName);
+    this.drawZoneBackground(bx, by, width, height, '', playerName);
 
     const contentX = bx + BOARD_PADDING;
     const contentY = by + BOARD_PADDING + 24; // 24px for label
@@ -209,7 +207,7 @@ export class AzulScene {
         if (col < pieces.length) {
           this.renderPiece(pieces[col], tx, ty);
         } else {
-          this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE, WALL_EMPTY_COLOR);
+          this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE);
         }
       }
     }
@@ -220,7 +218,7 @@ export class AzulScene {
       for (let col = 0; col < 5; col++) {
         const tx = wallX + col * (TILE_SIZE + TILE_GAP);
         const ty = contentY + row * (TILE_SIZE + TILE_GAP);
-        this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE, WALL_EMPTY_COLOR);
+        this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE);
       }
     }
 
@@ -233,7 +231,7 @@ export class AzulScene {
       if (col < floorPieces.length) {
         this.renderPiece(floorPieces[col], tx, floorY);
       } else {
-        this.drawEmptySlot(tx, floorY, TILE_SIZE, TILE_SIZE, FLOOR_EMPTY_COLOR);
+        this.drawEmptySlot(tx, floorY, TILE_SIZE, TILE_SIZE);
       }
     }
 
@@ -258,6 +256,7 @@ export class AzulScene {
 
     this.renderer.setInteractive(handle, true);
     this.renderer.addToStage(handle);
+    this.renderer.setPosition(handle, x, y);
 
     // Store position info
     this.pieceHandles.set(piece.id, { handle, x, y });
@@ -407,19 +406,21 @@ export class AzulScene {
   private drawFactoryBackground(cx: number, cy: number): void {
     const handle = this.renderer.createSprite(`factory-bg:${cx}:${cy}`);
     this.renderer.addToStage(handle);
-    void cx; void cy; // positions are encoded in textureId for PixiAdapter fallback
+    this.renderer.setPosition(handle, cx, cy);
   }
 
   /**
    * Draw empty placeholder slots inside an empty factory (4 greyed squares).
    */
   private drawEmptyFactorySlots(cx: number, cy: number): void {
+    // Center a 2x2 grid within the factory circle
+    const gridW = 2 * TILE_SIZE + TILE_GAP; // 100
     for (let i = 0; i < 4; i++) {
       const col = i % 2;
       const row = Math.floor(i / 2);
-      const tx = cx - TILE_SIZE / 2 - TILE_GAP / 2 + col * (TILE_SIZE + TILE_GAP);
-      const ty = cy - TILE_SIZE / 2 - TILE_GAP / 2 + row * (TILE_SIZE + TILE_GAP);
-      this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE, FACTORY_BG_COLOR);
+      const tx = cx - gridW / 2 + col * (TILE_SIZE + TILE_GAP);
+      const ty = cy - gridW / 2 + row * (TILE_SIZE + TILE_GAP);
+      this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE);
     }
   }
 
@@ -432,15 +433,17 @@ export class AzulScene {
   ): void {
     const handle = this.renderer.createSprite(`zone-bg:${x}:${y}:${width}:${height}`);
     this.renderer.addToStage(handle);
+    this.renderer.setPosition(handle, x, y);
   }
 
   /**
    * Draw a single empty slot (grid cell / pattern line position).
    */
   private drawEmptySlot(
-    x: number, y: number, width: number, height: number, _color: string
+    x: number, y: number, width: number, height: number
   ): void {
     const handle = this.renderer.createSprite(`slot:${x}:${y}:${width}:${height}`);
     this.renderer.addToStage(handle);
+    this.renderer.setPosition(handle, x, y);
   }
 }

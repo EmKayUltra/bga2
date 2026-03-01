@@ -91,6 +91,11 @@ export interface IRenderer {
   /** Remove a scene object from the root stage. */
   removeFromStage(handle: ISceneHandle): void;
 
+  // ── Positioning ──
+
+  /** Set the position of a scene object in world coordinates. */
+  setPosition(handle: ISceneHandle, x: number, y: number): void;
+
   // ── Interaction ──
 
   /** Enable or disable pointer events on a sprite. */

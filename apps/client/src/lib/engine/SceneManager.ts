@@ -90,10 +90,14 @@ export class SceneManager {
     const w = this.container.clientWidth || 1280;
     const h = this.container.clientHeight || 800;
 
+    // World size matches actual content bounds (factories + 2 stacked player boards)
+    const worldW = 650;
+    const worldH = 1300;
+
     // 2. Init renderer
     await this.renderer.init(this.container, {
-      worldWidth: 2000,
-      worldHeight: 1500,
+      worldWidth: worldW,
+      worldHeight: worldH,
       background: 0xfafaf8,
     });
 
@@ -101,8 +105,8 @@ export class SceneManager {
     this.renderer.enableViewport({
       screenWidth: w,
       screenHeight: h,
-      worldWidth: 2000,
-      worldHeight: 1500,
+      worldWidth: worldW,
+      worldHeight: worldH,
     });
 
     // 3. Load game model

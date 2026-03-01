@@ -21,9 +21,7 @@ import '@mszu/pixi-ssr-shim'; // MUST be first — patches browser globals for S
 
 import {
   Application,
-  Sprite,
   Container,
-  Texture,
   Graphics,
   Rectangle,
   Filter,
@@ -45,6 +43,13 @@ import type {
 // ─── Minimum touch target size (ENG-09) ──────────────────────────────────────
 
 const MIN_HIT_AREA_PX = 44;
+const TILE_SIZE = 48;
+const FACTORY_CIRCLE_R = 60;
+
+/** Convert CSS hex color string (#4A90D9) to numeric hex (0x4A90D9). */
+function cssColorToHex(color: string): number {
+  return parseInt(color.replace('#', ''), 16);
+}
 
 // ─── Handle types ─────────────────────────────────────────────────────────────
 
@@ -122,28 +127,46 @@ export class PixiAdapter implements IRenderer {
   // ── Scene graph ──
 
   createSprite(textureId: string): ISpriteHandle {
-    let sprite: Sprite | Graphics;
+    const g = new Graphics();
 
-    // Use cached texture if available, otherwise create placeholder
-    const texture = Texture.from(textureId);
-    if (texture && texture !== Texture.EMPTY) {
-      sprite = new Sprite(texture);
+    // Parse textureId to determine what to draw procedurally
+    if (textureId.startsWith('piece:')) {
+      // Format: "piece:{defId}:{color}:{label}"
+      const parts = textureId.split(':');
+      const colorStr = parts[2] ?? '#4a90d9';
+      const color = cssColorToHex(colorStr);
+      g.roundRect(0, 0, TILE_SIZE, TILE_SIZE, 6).fill({ color });
+      g.stroke({ color: 0x00000020, width: 1 });
+    } else if (textureId.startsWith('factory-bg:')) {
+      // Factory background circle — clearly visible
+      g.circle(0, 0, FACTORY_CIRCLE_R).fill({ color: 0xc8c1b7 });
+      g.stroke({ color: 0xa89f94, width: 2 });
+    } else if (textureId.startsWith('zone-bg:')) {
+      // Zone/board background rectangle
+      const parts = textureId.split(':');
+      const w = parseFloat(parts[3] ?? '200');
+      const h = parseFloat(parts[4] ?? '120');
+      g.roundRect(0, 0, w, h, 8).fill({ color: 0xe0dbd3 });
+      g.stroke({ color: 0xb8b0a5, width: 1.5 });
+    } else if (textureId.startsWith('slot:')) {
+      // Empty slot with clear border
+      const parts = textureId.split(':');
+      const w = parseFloat(parts[3] ?? '48');
+      const h = parseFloat(parts[4] ?? '48');
+      g.roundRect(0, 0, w, h, 4).fill({ color: 0xddd8d0 });
+      g.stroke({ color: 0xb0a898, width: 1.5 });
     } else {
-      // Procedural placeholder: colored Graphics rectangle
-      const g = new Graphics();
-      g.rect(0, 0, 48, 48).fill({ color: 0x4a90d9 });
-      sprite = g as unknown as Sprite;
+      g.rect(0, 0, 48, 48).fill({ color: 0xcccccc });
     }
 
+    const obj = g as unknown as Container;
+
     // Enforce 44px minimum touch target (ENG-09)
-    const bounds = sprite.getBounds?.() ?? { width: 0, height: 0 };
-    const hitW = Math.max(bounds.width || 48, MIN_HIT_AREA_PX);
-    const hitH = Math.max(bounds.height || 48, MIN_HIT_AREA_PX);
-    (sprite as Container).hitArea = new Rectangle(-hitW / 2, -hitH / 2, hitW, hitH);
-    (sprite as Container).eventMode = 'static';
+    obj.hitArea = new Rectangle(0, 0, Math.max(TILE_SIZE, MIN_HIT_AREA_PX), Math.max(TILE_SIZE, MIN_HIT_AREA_PX));
+    obj.eventMode = 'static';
 
     const id = nextHandleId();
-    this._handles.set(id, sprite as unknown as Container);
+    this._handles.set(id, obj);
 
     return { _brand: 'sprite', id } as PixiSpriteHandle;
   }
@@ -174,6 +197,17 @@ export class PixiAdapter implements IRenderer {
     const obj = this._handles.get(id);
     if (obj) {
       obj.parent?.removeChild(obj);
+    }
+  }
+
+  // ── Positioning ──
+
+  setPosition(handle: ISceneHandle, x: number, y: number): void {
+    const id = (handle as PixiSpriteHandle | PixiContainerHandle).id;
+    const obj = this._handles.get(id);
+    if (obj) {
+      obj.x = x;
+      obj.y = y;
     }
   }
 
@@ -279,7 +313,12 @@ export class PixiAdapter implements IRenderer {
       .drag()     // left-click / single-finger drag to pan
       .pinch()    // two-finger pinch to zoom (mobile)
       .wheel()    // scroll-wheel to zoom (desktop)
-      .decelerate(); // momentum-based movement after drag
+      .decelerate() // momentum-based movement after drag
+      .clampZoom({ minScale: 0.3, maxScale: 2 });
+
+    // Fit world content into screen and center it
+    this.viewport.fit();
+    this.viewport.moveCenter(options.worldWidth / 2, options.worldHeight / 2);
 
     this.app.stage.addChild(this.viewport);
 

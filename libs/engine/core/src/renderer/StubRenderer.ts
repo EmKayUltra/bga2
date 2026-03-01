@@ -107,6 +107,12 @@ export class StubRenderer implements IRenderer {
     }
   }
 
+  // ── Positioning ──
+
+  setPosition(_handle: ISceneHandle, _x: number, _y: number): void {
+    // no-op in stub
+  }
+
   // ── Interaction ──
 
   setInteractive(_handle: ISpriteHandle, _enabled: boolean): void {

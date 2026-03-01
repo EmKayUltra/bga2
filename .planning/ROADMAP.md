@@ -32,16 +32,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Zoom with pinch (mobile) and scroll-wheel (desktop) works; drag-to-pan works; all interactive elements meet the 44px touch target minimum
   5. The server validates a move against a hook function and returns a validMoves[] array — the client highlights legal moves without re-implementing any rule logic
   6. `docker compose up` starts the full local development stack (frontend, API, local PostgreSQL) — no local tool installs required beyond Docker
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 auto-tasks executed (01-07 awaiting checkpoint:human-verify)
 
 Plans:
-- [ ] 01-01-PLAN.md -- NX monorepo scaffold + Docker Compose dev environment
-- [ ] 01-02-PLAN.md -- Engine type contracts (IRenderer, GameConfig, hooks) + Azul game.json
-- [ ] 01-03-PLAN.md -- Hierarchical FSM runtime with parallel regions (TDD)
-- [ ] 01-04-PLAN.md -- Game loader + zone/piece primitives
-- [ ] 01-05-PLAN.md -- PixiJS renderer adapter + viewport + touch targets
-- [ ] 01-06-PLAN.md -- C# API server + server-side move validation via Jint
-- [ ] 01-07-PLAN.md -- Azul scene integration + end-to-end wiring + visual polish
+- [x] 01-01-PLAN.md -- NX monorepo scaffold + Docker Compose dev environment
+- [x] 01-02-PLAN.md -- Engine type contracts (IRenderer, GameConfig, hooks) + Azul game.json
+- [x] 01-03-PLAN.md -- Hierarchical FSM runtime with parallel regions (TDD)
+- [x] 01-04-PLAN.md -- Game loader + zone/piece primitives
+- [x] 01-05-PLAN.md -- PixiJS renderer adapter + viewport + touch targets
+- [x] 01-06-PLAN.md -- C# API server + server-side move validation via Jint
+- [ ] 01-07-PLAN.md -- Azul scene integration + end-to-end wiring + visual polish (checkpoint pending)
 
 ### Phase 2: Azul + First Playable
 **Goal**: A complete game of Azul can be played locally (single browser, hot-seat style) with all rules enforced by the server, state persisted to PostgreSQL, and a working SvelteKit UI — the engine is proven by a real game
@@ -107,7 +107,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Engine Foundation | 6/7 | In Progress|  |
+| 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | TBD | Not started | - |
 | 3. Multiplayer + Social | TBD | Not started | - |
 | 4. Async + Notifications | TBD | Not started | - |
@@ -116,4 +116,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-02-28 after initial creation*
+*Last updated: 2026-03-01 — Plan 01-07 auto-tasks complete; checkpoint:human-verify pending*

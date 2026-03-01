@@ -44,7 +44,11 @@ Recent decisions affecting current work:
 
 - [Init]: Stack confirmed — SvelteKit 2 + Svelte 5, PixiJS 8 behind IRenderer, C# Lambda .NET 8 Native AOT, AppSync Events, DynamoDB, AWS CDK
 - [Init]: Phase 5 (AI Toolkit) can parallel-track starting from Phase 3 — game package format is stable after Phase 2
-- [Init]: REQUIREMENTS.md header count (38) is stale — actual v1 requirement count is 45
+- [Init]: v1 requirement count is 47 (45 original + 2 infrastructure: INFR-01, INFR-02)
+- [Phase 1]: Docker Compose with 3 services (SvelteKit, C# API, DynamoDB Local), monorepo, watch mode
+- [Phase 1]: Click-to-select/place interaction, glow + highlight feedback, snappy overshoot animations, speculative select on opponent turns
+- [Phase 1]: Data-heavy game.json + TypeScript hooks, hybrid zones, sprite + procedural fallback pieces
+- [Phase 1]: Warm textured aesthetic (tabletop feel), adaptive layout, styled placeholders
 
 ### Pending Todos
 
@@ -59,5 +63,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Roadmap created, REQUIREMENTS.md traceability updated, STATE.md initialized — ready to run /gsd:plan-phase 1
-Resume file: None
+Stopped at: Phase 1 context gathered — implementation decisions captured for player interaction, visual style, game definition format, and dev workflow
+Resume file: .planning/phases/01-engine-foundation/01-CONTEXT.md

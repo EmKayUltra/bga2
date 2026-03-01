@@ -35,7 +35,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **MULT-03**: Lobby with open and invite-only table creation
 - [ ] **MULT-04**: Reconnection re-fetches server state before enabling interaction
 - [ ] **MULT-05**: Idempotent move protocol with client-generated UUIDs
-- [ ] **MULT-06**: DynamoDB conditional writes with state versioning prevent concurrent update corruption
+- [ ] **MULT-06**: Optimistic locking with state versioning prevents concurrent update corruption
 
 ### Social
 

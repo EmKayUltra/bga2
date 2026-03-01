@@ -35,14 +35,39 @@ Game engine primitives, renderer abstraction (IRenderer + PixiJS adapter), hiera
 - Hybrid zones: zones have a name and a type (grid, stack, hand, deck, discard). The engine knows how to render and interact with each type by default. Hooks can override any zone behavior for custom game needs.
 - Pieces: sprite-based rendering when asset images exist, auto-generated procedural shapes (colored shape + text label) as fallback. AI creation pipeline can generate a playable game before art is finalized.
 
+### NX Monorepo Structure
+- NX monorepo using standard apps/ + libs/ convention
+- **apps/**: deployable things
+  - `apps/client/` — SvelteKit web application
+  - `apps/server/` — C# API server (.NET)
+  - `apps/infra/` — CDK stack, Docker Compose, deployment scripts (own NX project)
+- **libs/**: shared code
+  - `libs/engine/` — umbrella with feature-sliced sub-libs:
+    - `libs/engine/fsm/` — hierarchical state machine runtime
+    - `libs/engine/renderer/` — IRenderer interface + PixiJS adapter
+    - `libs/engine/hooks/` — hook contract + runner
+    - `libs/engine/types/` — engine-specific types (Zone, Piece, GameState)
+  - `libs/shared-types/` — cross-cutting types shared by client, server, engine, and games (Move, Player, GameConfig)
+  - `libs/games/azul/` — Azul game library (game plugin pattern)
+  - (future games added as libs/games/{name}/)
+- Each game is an NX library exporting a typed `GameDefinition` interface — type-checked integration with the engine, discoverable via NX project graph
+- Individual game library structure: game.json + hooks.ts + assets/ + tests/ + README — self-documenting with own test suite
+- `nx build game-azul` produces a deployable bundle: compiled hooks.js + game.json + assets packed into a versioned directory ready for S3 upload
+
+### Database
+- PostgreSQL for all persistence — single database, not DynamoDB (overrides research recommendation)
+- Game state stored as JSONB columns — flexible schema for different game types while keeping relational structure for everything else
+- Relational tables for: users, profiles, friendships, match history, game library, subscriptions, chat, notifications
+- Optimistic locking via version column + conditional UPDATE for concurrent move protection (replaces DynamoDB conditional writes)
+- Production hosting: Aurora Serverless v2 or Neon (serverless Postgres) for budget-conscious scaling
+
 ### Dev Environment
 - Docker Compose orchestrates the full local stack. `docker compose up` starts everything. No local tool installs beyond Docker.
 - Three services in Docker Compose:
   1. SvelteKit frontend (Vite dev server with HMR)
   2. C# API server (dotnet watch for automatic rebuild on file save)
-  3. DynamoDB Local (local persistence for game state)
+  3. PostgreSQL (local persistence for game state + all relational data)
 - Watch mode on both frontend and backend: saving a file triggers automatic rebuild/reload. Frontend via Vite HMR (instant), backend via dotnet watch (slightly slower but fully automatic).
-- Monorepo structure with top-level directories: /client (SvelteKit), /server (C# API), /engine (shared game logic), /shared (types, contracts)
 
 ### Testing Strategy
 - Unit tests for engine internals: FSM transitions, game state mutations, hook execution, zone/piece operations
@@ -52,9 +77,9 @@ Game engine primitives, renderer abstraction (IRenderer + PixiJS adapter), hiera
 ### Claude's Discretion
 - Exact PixiJS filter parameters (glow intensity, particle count, animation timing curves)
 - Procedural shape generation algorithm for piece fallback rendering
-- Monorepo tooling choice (npm workspaces, turborepo, or similar)
+- How C# server integrates with NX (nx-dotnet plugin vs custom executors wrapping dotnet CLI)
 - Test framework selection (xUnit for C#, vitest for TypeScript)
-- DynamoDB Local vs alternative local persistence for Phase 1
+- NX caching and task pipeline configuration
 
 </decisions>
 

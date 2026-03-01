@@ -13,7 +13,7 @@ BGA2 is built in six phases, each leaving the system in a demonstrable state. Th
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Engine Foundation** - Game engine primitives, renderer abstraction, FSM runtime, game hook contract, and Dockerized dev environment — the shared foundation everything else builds on
-- [ ] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, DynamoDB persistence, REST API, and SvelteKit game view
+- [ ] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, PostgreSQL persistence, REST API, and SvelteKit game view
 - [ ] **Phase 3: Multiplayer + Social** - Real-time play via AppSync Events, lobby system, player profiles, friend system, and PWA installability
 - [ ] **Phase 4: Async + Notifications** - Async turn-based game mode with configurable timers, email notifications, Web Push, and player notification preferences
 - [ ] **Phase 5: AI Game Creation Toolkit** - Local-first C# tool for ingesting rulebooks and generating deployable game packages via LLM pipeline with mandatory human review gate
@@ -31,18 +31,18 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Pieces, zones, and boards can be defined in game.json and loaded by the engine; a hook function (hooks.ts) can mutate game state in response to an engine event
   4. Zoom with pinch (mobile) and scroll-wheel (desktop) works; drag-to-pan works; all interactive elements meet the 44px touch target minimum
   5. The server validates a move against a hook function and returns a validMoves[] array — the client highlights legal moves without re-implementing any rule logic
-  6. `docker compose up` starts the full local development stack (frontend, API, local DynamoDB) — no local tool installs required beyond Docker
+  6. `docker compose up` starts the full local development stack (frontend, API, local PostgreSQL) — no local tool installs required beyond Docker
 **Plans**: TBD
 
 ### Phase 2: Azul + First Playable
-**Goal**: A complete game of Azul can be played locally (single browser, hot-seat style) with all rules enforced by the server, state persisted to DynamoDB, and a working SvelteKit UI — the engine is proven by a real game
+**Goal**: A complete game of Azul can be played locally (single browser, hot-seat style) with all rules enforced by the server, state persisted to PostgreSQL, and a working SvelteKit UI — the engine is proven by a real game
 **Depends on**: Phase 1
 **Requirements**: AZUL-01, AZUL-02, AZUL-03, AZUL-04, AZUL-05, PLAT-01
 **Success Criteria** (what must be TRUE):
   1. A 2-4 player Azul game runs to completion with correct drafting, tiling, per-round scoring, end-game scoring, and all edge cases (floor line overflow, factory exhaustion, first player token) enforced server-side
   2. Attempting an illegal move (placing on a full pattern line, drafting from an empty factory) is rejected by the server with an error; the client shows the move as invalid and does not update state
   3. A user can sign up, log in, and return to a game-in-progress after closing and reopening the browser — session persists across refresh
-  4. Game state survives a server restart — DynamoDB holds authoritative state with versioned conditional writes; the client re-fetches on reconnect
+  4. Game state survives a server restart — PostgreSQL holds authoritative state with versioned conditional writes; the client re-fetches on reconnect
 **Plans**: TBD
 
 ### Phase 3: Multiplayer + Social

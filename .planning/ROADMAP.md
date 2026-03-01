@@ -52,7 +52,13 @@ Plans:
   2. Attempting an illegal move (placing on a full pattern line, drafting from an empty factory) is rejected by the server with an error; the client shows the move as invalid and does not update state
   3. A user can sign up, log in, and return to a game-in-progress after closing and reopening the browser — session persists across refresh
   4. Game state survives a server restart — PostgreSQL holds authoritative state with versioned conditional writes; the client re-fetches on reconnect
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 02-01-PLAN.md -- Azul game hooks TDD (getValidMoves, onMove, onRoundEnd — full rules)
+- [ ] 02-02-PLAN.md -- Server updates (CreateGame with players, HookExecutor context fix, auto-onRoundEnd)
+- [ ] 02-03-PLAN.md -- Client scene (multi-player turn tracking, 2-4 player boards, tap-select interaction, score summary)
+- [ ] 02-04-PLAN.md -- Client routes (landing page, game list, player name entry) + visual verification checkpoint
 
 ### Phase 3: Multiplayer + Social
 **Goal**: Two or more players on different devices can play Azul in real time, find each other through the lobby, and play with friends via invite — the platform becomes multiplayer
@@ -108,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
-| 2. Azul + First Playable | TBD | Not started | - |
+| 2. Azul + First Playable | 0/4 | Planning complete | - |
 | 3. Multiplayer + Social | TBD | Not started | - |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
@@ -116,4 +122,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-01 — Plan 01-07 auto-tasks complete; checkpoint:human-verify pending*
+*Last updated: 2026-03-01 — Phase 2 planned (4 plans in 4 waves)*

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T05:57:32.310Z"
+last_updated: "2026-03-01T06:04:00Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 2
+  completed_plans: 4
 ---
 
 # Project State
@@ -23,27 +23,27 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 1 of 6 (Engine Foundation)
-Plan: 2 of TBD in current phase (01-02 complete)
+Plan: 4 of TBD in current phase (01-04 complete)
 Status: In progress — ready for next plan
-Last activity: 2026-03-01 — Plan 01-02 complete: Engine type contracts (IRenderer, GameConfig, HookFunctions) and Azul game.json + hooks stubs
+Last activity: 2026-03-01 — Plan 01-04 complete: Zone hierarchy (5 types), Piece class, PieceFactory, GameLoader, RuntimeGameModel
 
-Progress: [██░░░░░░░░] ~10%
+Progress: [███░░░░░░░] ~20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
+- Total plans completed: 4
 - Average duration: 5 min
-- Total execution time: 10 min
+- Total execution time: 18 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-engine-foundation | 2 | 10 min | 5 min |
+| 01-engine-foundation | 4 | 18 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (4 min), 01-02 (6 min)
+- Last 5 plans: 01-01 (4 min), 01-02 (6 min), 01-03 (4 min), 01-04 (4 min)
 - Trend: baseline stable
 
 *Updated after each plan completion*
@@ -72,6 +72,10 @@ Recent decisions affecting current work:
 - [Phase 01-02]: ZoneDef and PieceDef kept in their own files rather than co-located in game-config.ts to avoid export confusion in barrel index.ts
 - [Phase 01-02]: Azul tsconfig drops rootDir — cross-package @bga2/shared-types imports fail rootDir boundary check; monorepo libs importing from sibling packages should not restrict rootDir
 - [Phase 01-02]: tsconfig.test.json pattern for type-contract tests — noUnusedLocals flags type alias declarations in test bodies; separate test tsconfig relaxes the rule
+- [Phase 01-04]: Zone subclasses colocated in Zone.ts — all 5 are small and tightly related; separate files add import complexity for no benefit
+- [Phase 01-04]: PieceFactory uses defId-N naming (tile-blue-0, tile-blue-1) — deterministic ids support reproducible tests and serialization
+- [Phase 01-04]: GameLoader does not load/execute hooks — hooks are the server's responsibility; loader is a pure synchronous data transform
+- [Phase 01-04]: RuntimeGameModel uses Map for O(1) zone/piece lookups and flat array for ordered piece iteration
 
 ### Pending Todos
 
@@ -86,5 +90,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-02-PLAN.md — Engine type contracts (IRenderer, GameConfig, HookFunctions, Move, GameState) and Azul game.json + hooks.ts stubs. ENG-06 and ENG-10 requirements complete.
-Resume file: .planning/phases/01-engine-foundation/01-02-SUMMARY.md
+Stopped at: Completed 01-04-PLAN.md — Zone hierarchy (GridZone, StackZone, HandZone, DeckZone, DiscardZone), Piece, PieceFactory, GameLoader, RuntimeGameModel. ENG-01 and ENG-02 requirements complete.
+Resume file: .planning/phases/01-engine-foundation/01-04-SUMMARY.md

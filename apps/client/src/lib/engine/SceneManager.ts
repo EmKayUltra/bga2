@@ -6,13 +6,13 @@
  *   - Load game model via GameLoader
  *   - Create and drive XState FSM
  *   - Create AzulScene and render initial board state
- *   - Handle piece click interactions (select, highlight, move, animate)
+ *   - Handle two-step tap-to-select interaction: source zone → destination pattern line
  *   - Submit moves to server via gameApi and process results
- *   - Update scene after each move
+ *   - Update scene after each move (multi-player turn tracking from real server state)
  *
  * Usage in SvelteKit (inside onMount only):
  *   const sm = new SceneManager(containerEl, gameConfig);
- *   await sm.init();
+ *   await sm.init(sessionId);
  *
  * On cleanup:
  *   sm.destroy();
@@ -21,7 +21,7 @@
 import { GameLoader } from '@bga2/engine-core';
 import { createGameFSM } from '@bga2/engine-core';
 import { AzulScene } from './AzulScene.js';
-import { submitMove, getGameState } from '../api/gameApi.js';
+import { submitMove, getGameState, createGame } from '../api/gameApi.js';
 
 import type { GameConfig, ValidMove, MoveResult, GameState } from '@bga2/shared-types';
 import type { RuntimeGameModel } from '@bga2/engine-core';
@@ -32,10 +32,16 @@ import type { Actor } from 'xstate';
 
 export interface SceneManagerState {
   sessionId: string | null;
-  playerId: string;
+  currentPlayerIndex: number;      // derived from server state — replaces hardcoded playerId
+  playerNames: string[];           // from server state
+  playerScores: number[];          // from server state
   currentFsmState: string;
   lastMoveResult: MoveResult | null;
   validMoves: ValidMove[];
+  gameState: GameState | null;     // full state from server for UI binding
+  turnHandoffMode: 'open-board' | 'pass-and-play';
+  selectedSource: string | null;   // currently selected factory/center zone ID
+  selectedColor: string | null;    // currently selected tile color
 }
 
 // ─── SceneManager ─────────────────────────────────────────────────────────────
@@ -51,21 +57,32 @@ export class SceneManager {
   private fsmActor: Actor<any> | null = null;
   private scene: AzulScene | null = null;
 
-  // Interaction state
-  private selectedPieceId: string | null = null;
+  // Interaction state (two-step: source → target)
   private currentValidMoves: ValidMove[] = [];
 
-  // Public observable state (for dev toolbar)
+  // Public observable state (for UI toolbar)
   public state: SceneManagerState = {
     sessionId: null,
-    playerId: 'player-1',  // Phase 1: hardcoded single player
+    currentPlayerIndex: 0,
+    playerNames: [],
+    playerScores: [],
     currentFsmState: 'idle',
     lastMoveResult: null,
     validMoves: [],
+    gameState: null,
+    turnHandoffMode: 'open-board',
+    selectedSource: null,
+    selectedColor: null,
   };
 
   /** Notified when public state changes — used by the Svelte page for reactivity. */
   public onStateChange: (() => void) | null = null;
+
+  /** Fired when the turn changes — page shows "PlayerName's Turn" banner. */
+  public onTurnChange: ((playerIndex: number, playerName: string) => void) | null = null;
+
+  /** Fired when the game ends — page shows score summary overlay. */
+  public onGameFinished: ((state: GameState) => void) | null = null;
 
   constructor(container: HTMLElement, gameConfig: GameConfig) {
     this.container = container;
@@ -80,7 +97,8 @@ export class SceneManager {
    * 2. Init renderer and enable viewport
    * 3. Load game model from config
    * 4. Create and start FSM
-   * 5. Create AzulScene and render initial board
+   * 5. Fetch real game state from server (if sessionId provided)
+   * 6. Create AzulScene and render initial board
    */
   async init(sessionId?: string): Promise<void> {
     // 1. Dynamic import of PixiAdapter (SSR-safe)
@@ -90,9 +108,9 @@ export class SceneManager {
     const w = this.container.clientWidth || 1280;
     const h = this.container.clientHeight || 800;
 
-    // World size matches actual content bounds (factories + 2 stacked player boards)
+    // World size — scales with player count (set after fetching state)
     const worldW = 640;
-    const worldH = 1200;
+    const worldH = 1400;
 
     // 2. Init renderer
     await this.renderer.init(this.container, {
@@ -127,27 +145,60 @@ export class SceneManager {
       parallelTurns: false,
     });
 
-    // Phase 1 stub game state for FSM initialization
-    const stubGameState: GameState = {
-      id: 'stub',
-      gameId: this.gameConfig.id,
-      version: 0,
-      phase: 'factoryOffer',
-      currentPlayerIndex: 0,
-      players: [
-        { id: 'player-1', name: 'Player 1', score: 0, data: {} },
-        { id: 'player-2', name: 'Player 2', score: 0, data: {} },
-      ],
-      zones: {},
-      round: 1,
-      finished: false,
-    };
+    // 5. Fetch real game state (or create a demo session if needed)
+    let initialGameState: GameState | null = null;
+
+    if (sessionId) {
+      this.state.sessionId = sessionId;
+      try {
+        const stateResponse = await getGameState(sessionId);
+        initialGameState = stateResponse.state;
+        this.currentValidMoves = stateResponse.validMoves;
+        this.state.validMoves = stateResponse.validMoves;
+        this.updateStateFromGameState(initialGameState);
+      } catch (err) {
+        console.warn('[SceneManager] Could not fetch game state:', err);
+      }
+    } else {
+      // No session — try to create one for the demo
+      try {
+        const response = await createGame('azul', ['Player 1', 'Player 2']);
+        this.state.sessionId = response.sessionId;
+        const stateResponse = await getGameState(response.sessionId);
+        initialGameState = stateResponse.state;
+        this.currentValidMoves = stateResponse.validMoves;
+        this.state.validMoves = stateResponse.validMoves;
+        this.updateStateFromGameState(initialGameState);
+      } catch (err) {
+        console.info('[SceneManager] Server not available — running without server state:', err);
+        // Provide minimal state so rendering works
+        this.state.playerNames = ['Player 1', 'Player 2'];
+        this.state.playerScores = [0, 0];
+      }
+    }
 
     // Dynamic import of xstate createActor (avoids SSR issues)
     const { createActor } = await import('xstate');
-    this.fsmActor = createActor(this.fsm, {
-      input: { gameState: stubGameState, round: 1, currentPlayerIndex: 0 },
-    });
+    const fsmInput = {
+      gameState: initialGameState ?? {
+        id: 'stub',
+        gameId: this.gameConfig.id,
+        version: 0,
+        phase: 'factory-offer',
+        currentPlayerIndex: 0,
+        players: [
+          { id: 'player-1', name: 'Player 1', score: 0, data: {} },
+          { id: 'player-2', name: 'Player 2', score: 0, data: {} },
+        ],
+        zones: {},
+        round: 1,
+        finished: false,
+      } as GameState,
+      round: initialGameState?.round ?? 1,
+      currentPlayerIndex: initialGameState?.currentPlayerIndex ?? 0,
+    };
+
+    this.fsmActor = createActor(this.fsm, { input: fsmInput });
     this.fsmActor.subscribe((snapshot) => {
       const stateVal = snapshot.value;
       this.state.currentFsmState = typeof stateVal === 'string'
@@ -157,35 +208,47 @@ export class SceneManager {
     });
     this.fsmActor.start();
 
-    // 5. Create scene and render board
+    // 6. Create scene and render board with real state
     this.scene = new AzulScene(this.renderer, this.model);
-    this.scene.renderBoard();
 
-    // Wire piece click handlers for all pieces
-    this.wirePieceClickHandlers();
-
-    // Store session ID if provided
-    if (sessionId) {
-      this.state.sessionId = sessionId;
-      // Fetch initial valid moves
-      await this.refreshValidMoves();
+    if (initialGameState) {
+      this.scene.renderBoard(initialGameState);
+    } else {
+      this.scene.renderBoard();
     }
+
+    // Wire click handlers
+    this.wireClickHandlers();
 
     this.onStateChange?.();
   }
 
   /**
-   * Wire click handlers for all pieces in the model.
+   * Update SceneManagerState from a GameState received from the server.
    */
-  private wirePieceClickHandlers(): void {
-    if (!this.scene || !this.model) return;
+  private updateStateFromGameState(gs: GameState): void {
+    this.state.gameState = gs;
+    this.state.currentPlayerIndex = gs.currentPlayerIndex;
+    this.state.playerNames = gs.players.map((p) => p.name);
+    this.state.playerScores = gs.players.map((p) => p.score);
+  }
 
-    for (const piece of this.model.pieces) {
-      const pieceId = piece.id;
-      this.scene.onPieceClick(pieceId, () => {
-        this.handlePieceClick(pieceId);
-      });
-    }
+  /**
+   * Wire click handlers on all source zones (factories/center) and destination zones
+   * (pattern lines/floor line) using the AzulScene callback API.
+   */
+  private wireClickHandlers(): void {
+    if (!this.scene) return;
+
+    // Source zone click: factory or center tile click
+    this.scene.onSourceClick((zoneId, color) => {
+      this.handleSourceClick(zoneId, color);
+    });
+
+    // Destination zone click: pattern line row or floor line
+    this.scene.onDestinationClick((zoneId) => {
+      this.handleDestinationClick(zoneId);
+    });
   }
 
   /**
@@ -204,122 +267,186 @@ export class SceneManager {
   // ── Interaction handlers ──────────────────────────────────────────────────────
 
   /**
-   * Handle a piece click:
-   * - If no piece selected: select this piece, fetch valid moves, highlight destinations
-   * - If same piece clicked again: deselect (clear glow + highlights)
-   * - If a valid destination piece clicked: submit move to server
+   * Handle a source zone click (step 1 of two-step interaction).
+   * Player tapped a tile in a factory or center — highlight valid destinations.
    */
-  handlePieceClick(pieceId: string): void {
+  handleSourceClick(zoneId: string, color: string): void {
     if (!this.scene) return;
 
-    const currentSelected = this.scene.getSelectedPieceId();
-
-    if (currentSelected === null) {
-      // No piece selected — select this one
-      this.scene.selectPiece(pieceId);
-      this.selectedPieceId = pieceId;
-
-      // Highlight valid moves from current server state
-      this.scene.highlightValidMoves(this.currentValidMoves);
+    // If same source+color already selected, deselect
+    if (this.state.selectedSource === zoneId && this.state.selectedColor === color) {
+      this.scene.deselectSource();
+      this.state.selectedSource = null;
+      this.state.selectedColor = null;
       this.onStateChange?.();
       return;
     }
 
-    if (currentSelected === pieceId) {
-      // Clicking same piece — deselect
-      this.scene.deselectPiece();
-      this.scene.clearHighlights();
-      this.selectedPieceId = null;
-      this.onStateChange?.();
+    // Select new source
+    this.state.selectedSource = zoneId;
+    this.state.selectedColor = color;
+
+    // Filter valid moves to those matching this source + color
+    const relevantMoves = this.currentValidMoves.filter(
+      (vm) => vm.source === zoneId && (vm.pieceId === color || !vm.pieceId)
+    );
+
+    this.scene.selectSource(zoneId, color, relevantMoves);
+    this.onStateChange?.();
+  }
+
+  /**
+   * Handle a destination zone click (step 2 of two-step interaction).
+   * Player tapped a pattern line or floor line — submit the move.
+   */
+  handleDestinationClick(targetZoneId: string): void {
+    if (!this.scene || !this.state.selectedSource || !this.state.selectedColor) {
       return;
     }
 
-    // A different piece was clicked while one is selected
-    // Check if this piece is a valid move destination
-    const clickedPiece = this.model?.pieces.find((p) => p.id === pieceId);
-    const isValidTarget = clickedPiece
-      ? this.currentValidMoves.some((vm) => vm.target === clickedPiece.zoneId)
-      : false;
+    // Determine patternLineRow from the targetZoneId
+    // Convention: "player-{i}-pattern-line-{row}" → row 1-5, or "player-{i}-floor-line" → 0
+    let patternLineRow = 0;
+    const patternMatch = targetZoneId.match(/pattern-line-(\d+)$/);
+    if (patternMatch) {
+      patternLineRow = parseInt(patternMatch[1], 10);
+    }
+    // floor-line remains 0
 
-    if (isValidTarget && this.selectedPieceId && this.state.sessionId) {
-      // Submit move to server
-      void this.submitPlayerMove(this.selectedPieceId, pieceId);
-    } else {
-      // Not a valid destination — switch selection to clicked piece
-      this.scene.deselectPiece();
-      this.scene.clearHighlights();
-      this.scene.selectPiece(pieceId);
-      this.selectedPieceId = pieceId;
-      this.scene.highlightValidMoves(this.currentValidMoves);
-      this.onStateChange?.();
+    // Validate this is a legal destination
+    const isLegal = this.currentValidMoves.some((vm) => {
+      if (vm.source !== this.state.selectedSource) return false;
+      // Match by target zone or by data.patternLineRow
+      if (vm.target === targetZoneId) return true;
+      // The server valid moves may describe target by zone pattern
+      const vmRow = (vm as ValidMove & { data?: { patternLineRow?: number } }).data?.patternLineRow;
+      if (vmRow !== undefined && vmRow === patternLineRow) return true;
+      return false;
+    });
+
+    if (!isLegal && this.currentValidMoves.length > 0) {
+      // Not a legal destination — ignore (or deselect)
+      console.info('[SceneManager] Destination not legal:', targetZoneId);
+      return;
+    }
+
+    if (this.state.sessionId) {
+      void this.submitPlayerMove(
+        this.state.selectedSource,
+        this.state.selectedColor,
+        patternLineRow,
+        targetZoneId
+      );
     }
   }
 
   /**
    * Submit a player move to the server.
-   * Animates the piece on success; shows error feedback on failure.
+   * Uses the Azul move format: action='pick-tiles', source=zoneId, data.color, data.patternLineRow
    */
-  private async submitPlayerMove(sourcePieceId: string, targetPieceId: string): Promise<void> {
-    if (!this.scene || !this.model || !this.state.sessionId) return;
+  private async submitPlayerMove(
+    sourceZone: string,
+    color: string,
+    patternLineRow: number,
+    targetZoneId: string
+  ): Promise<void> {
+    if (!this.scene || !this.state.sessionId) return;
 
-    const sourcePiece = this.model.pieces.find((p) => p.id === sourcePieceId);
-    const targetPiece = this.model.pieces.find((p) => p.id === targetPieceId);
-    if (!sourcePiece || !targetPiece) return;
+    const playerIndex = this.state.currentPlayerIndex;
+    const playerId = `player-${playerIndex + 1}`;
 
     const move = {
-      playerId: this.state.playerId,
-      action: 'pick-from-factory',
-      source: sourcePiece.zoneId,
-      target: targetPiece.zoneId,
-      pieceId: sourcePieceId,
+      playerId,
+      action: 'pick-tiles',
+      source: sourceZone,
+      target: targetZoneId,
+      data: {
+        color,
+        patternLineRow,
+      },
     };
 
-    // Optimistically deselect while waiting for server
-    this.scene.deselectPiece();
-    this.scene.clearHighlights();
-    this.selectedPieceId = null;
+    // Deselect optimistically while waiting for server
+    this.scene.deselectSource();
+    const prevSource = this.state.selectedSource;
+    const prevColor = this.state.selectedColor;
+    this.state.selectedSource = null;
+    this.state.selectedColor = null;
 
     const result = await submitMove(this.state.sessionId, move);
-    await this.handleMoveResult(result, sourcePieceId, targetPiece);
+    await this.handleMoveResult(result, sourceZone, prevColor ?? color, targetZoneId);
+
+    void prevSource;
+    void prevColor;
   }
 
   /**
    * Handle a move result from the server:
-   * - Valid: animate piece, update model, advance FSM, refresh scene
-   * - Invalid: show error feedback, deselect
+   * - Valid: animate tiles, update from new server state, advance FSM, fire turn change
+   * - Invalid: show error feedback
    */
   async handleMoveResult(
     result: MoveResult,
-    sourcePieceId: string,
-    targetPiece: { id: string; zoneId: string } | null
+    sourceZone: string,
+    color: string,
+    targetZoneId: string
   ): Promise<void> {
     this.state.lastMoveResult = result;
 
-    if (result.valid && targetPiece) {
-      // Find destination position (approximate — use target zone position)
-      const targetZone = this.model?.zones.get(targetPiece.zoneId);
-      if (targetZone && this.scene) {
-        // Animate piece to destination
-        await this.scene.animatePiece(sourcePieceId, 0, 0);
-        await this.scene.playPlacementFeedback(sourcePieceId);
+    if (result.valid) {
+      // Animate tiles from source to destination
+      if (this.scene) {
+        await this.scene.animateMove(sourceZone, color, targetZoneId);
       }
 
-      // Update FSM state
+      // Update FSM
       if (this.fsmActor) {
         this.fsmActor.send({ type: 'SUBMIT_MOVE' });
       }
 
-      // Update valid moves for next turn
+      // Update valid moves from response
       if (result.validMoves) {
         this.currentValidMoves = result.validMoves;
         this.state.validMoves = result.validMoves;
       }
 
-      // Refresh scene to match new model state
-      this.scene?.updateScene();
-      this.wirePieceClickHandlers();
+      // Fetch fresh state to get updated game state
+      if (this.state.sessionId) {
+        try {
+          const stateResponse = await getGameState(this.state.sessionId);
+          const newGs = stateResponse.state;
+
+          // Update valid moves with fresh fetch
+          this.currentValidMoves = stateResponse.validMoves;
+          this.state.validMoves = stateResponse.validMoves;
+
+          const prevPlayerIndex = this.state.currentPlayerIndex;
+          this.updateStateFromGameState(newGs);
+
+          // Re-render scene with new state
+          if (this.scene) {
+            this.scene.updateFromState(newGs);
+            this.scene.setActivePlayer(newGs.currentPlayerIndex);
+          }
+
+          // Fire turn change callback if player changed
+          if (newGs.currentPlayerIndex !== prevPlayerIndex) {
+            this.onTurnChange?.(
+              newGs.currentPlayerIndex,
+              this.state.playerNames[newGs.currentPlayerIndex] ?? `Player ${newGs.currentPlayerIndex + 1}`
+            );
+          }
+
+          // Check for game end
+          if (newGs.finished) {
+            this.onGameFinished?.(newGs);
+          }
+        } catch (err) {
+          console.warn('[SceneManager] Could not refresh state after move:', err);
+        }
+      }
     } else {
-      // Invalid move — log error, deselect
+      // Invalid move — log error
       console.warn('[SceneManager] Move rejected:', result.errors);
     }
 
@@ -336,30 +463,30 @@ export class SceneManager {
       const stateResponse = await getGameState(this.state.sessionId);
       this.currentValidMoves = stateResponse.validMoves;
       this.state.validMoves = stateResponse.validMoves;
+
+      const gs = stateResponse.state;
+      this.updateStateFromGameState(gs);
+
+      if (this.scene) {
+        this.scene.updateFromState(gs);
+        this.scene.setActivePlayer(gs.currentPlayerIndex);
+      }
     } catch (err) {
-      // Server not available — use empty valid moves (Phase 1 permissive mode)
       console.warn('[SceneManager] Could not fetch valid moves:', err);
       this.currentValidMoves = [];
     }
+
+    this.onStateChange?.();
   }
 
   /**
-   * Reset the game (for Phase 1 dev toolbar).
+   * Reset/deselect any active selection without submitting a move.
    */
-  resetGame(): void {
-    if (!this.scene || !this.model) return;
-
-    this.scene.deselectPiece();
-    this.scene.clearHighlights();
-    this.selectedPieceId = null;
-    this.currentValidMoves = [];
-    this.state.lastMoveResult = null;
-    this.state.validMoves = [];
-
-    this.fsmActor?.stop();
-    this.scene.updateScene();
-    this.wirePieceClickHandlers();
-
+  clearSelection(): void {
+    if (!this.scene) return;
+    this.scene.deselectSource();
+    this.state.selectedSource = null;
+    this.state.selectedColor = null;
     this.onStateChange?.();
   }
 }

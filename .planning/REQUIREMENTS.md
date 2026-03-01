@@ -15,9 +15,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **ENG-04**: Server validates every move against state machine + game hooks; client never enforces rules
 - [ ] **ENG-05**: Client receives validMoves[] from server for legal move highlighting
 - [x] **ENG-06**: IRenderer interface abstracts rendering; game logic never imports renderer directly
-- [ ] **ENG-07**: PixiJS 8 WebGL adapter implements IRenderer as primary renderer
-- [ ] **ENG-08**: Zoom/pan works on all devices — pinch-to-zoom mobile, scroll-wheel desktop, drag to pan
-- [ ] **ENG-09**: Touch targets minimum 44px; no hover-dependent interactions
+- [x] **ENG-07**: PixiJS 8 WebGL adapter implements IRenderer as primary renderer
+- [x] **ENG-08**: Zoom/pan works on all devices — pinch-to-zoom mobile, scroll-wheel desktop, drag to pan
+- [x] **ENG-09**: Touch targets minimum 44px; no hover-dependent interactions
 - [x] **ENG-10**: Games defined as data (game.json) + script hooks (hooks.ts) on shared engine
 
 ### Azul
@@ -137,9 +137,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENG-04 | Phase 1 | Pending |
 | ENG-05 | Phase 1 | Pending |
 | ENG-06 | Phase 1 | Complete |
-| ENG-07 | Phase 1 | Pending |
-| ENG-08 | Phase 1 | Pending |
-| ENG-09 | Phase 1 | Pending |
+| ENG-07 | Phase 1 | Complete |
+| ENG-08 | Phase 1 | Complete |
+| ENG-09 | Phase 1 | Complete |
 | ENG-10 | Phase 1 | Complete |
 | INFR-01 | Phase 1 | Complete |
 | INFR-02 | Phase 1 | Complete |

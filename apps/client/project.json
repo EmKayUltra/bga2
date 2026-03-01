@@ -1,0 +1,36 @@
+{
+  "name": "client",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/client/src",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite dev",
+        "cwd": "apps/client"
+      }
+    },
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/client"
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "reportsDirectory": "../../coverage/apps/client"
+      }
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite preview",
+        "cwd": "apps/client"
+      }
+    }
+  },
+  "tags": ["type:app", "platform:web"]
+}

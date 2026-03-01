@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.svelte-kit/
+
+# NX
+.nx/cache
+.nx/workspace-data
+
+# TypeScript
+*.tsbuildinfo
+
+# .NET / C#
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor
+.idea/
+.vscode/settings.json
+.vscode/*.code-workspace
+*.code-workspace
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.log
+
+# Docker volumes (local)
+postgres-data/
+localstack-data/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.bak
+
+# SvelteKit
+.svelte-kit/

@@ -1,0 +1,28 @@
+{
+  "name": "bga2",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/client",
+    "libs/engine/core",
+    "libs/shared-types",
+    "libs/games/azul"
+  ],
+  "scripts": {
+    "dev": "nx run-many --target=dev --all",
+    "build": "nx run-many --target=build --all",
+    "test": "nx run-many --target=test --all",
+    "lint": "nx run-many --target=lint --all",
+    "docker:up": "docker compose -f apps/infra/docker-compose.yml up",
+    "docker:down": "docker compose -f apps/infra/docker-compose.yml down",
+    "docker:build": "docker compose -f apps/infra/docker-compose.yml build"
+  },
+  "devDependencies": {
+    "nx": "^19.0.0",
+    "@nx/vite": "^19.0.0",
+    "@nx/js": "^19.0.0",
+    "@nx/workspace": "^19.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {}
+}

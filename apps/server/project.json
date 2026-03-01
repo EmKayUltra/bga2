@@ -1,0 +1,44 @@
+{
+  "name": "server",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/server",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet build server.csproj",
+        "cwd": "apps/server"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet run --project server.csproj",
+        "cwd": "apps/server"
+      }
+    },
+    "watch": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet watch run --project server.csproj",
+        "cwd": "apps/server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet test",
+        "cwd": "apps/server"
+      }
+    },
+    "publish": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "dotnet publish server.csproj -c Release -o dist/apps/server",
+        "cwd": "apps/server"
+      }
+    }
+  },
+  "tags": ["type:app", "platform:server", "lang:csharp"]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "games-azul",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "libs/games/azul/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --build tsconfig.json",
+        "cwd": "libs/games/azul"
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "reportsDirectory": "../../../coverage/libs/games/azul"
+      }
+    }
+  },
+  "tags": ["type:lib", "scope:games"]
+}

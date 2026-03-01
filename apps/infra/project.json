@@ -1,0 +1,44 @@
+{
+  "name": "infra",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/infra",
+  "targets": {
+    "docker-up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f apps/infra/docker-compose.yml up",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "docker-up-detached": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f apps/infra/docker-compose.yml up -d",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "docker-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f apps/infra/docker-compose.yml down",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f apps/infra/docker-compose.yml build",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "docker-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose -f apps/infra/docker-compose.yml logs -f",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  },
+  "tags": ["type:infra"]
+}

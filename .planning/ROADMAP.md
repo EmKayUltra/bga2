@@ -13,7 +13,7 @@ BGA2 is built in six phases, each leaving the system in a demonstrable state. Th
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Engine Foundation** - Game engine primitives, renderer abstraction, FSM runtime, game hook contract, and Dockerized dev environment — the shared foundation everything else builds on
-- [ ] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, PostgreSQL persistence, REST API, and SvelteKit game view
+- [x] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, PostgreSQL persistence, REST API, and SvelteKit game view (completed 2026-03-01)
 - [ ] **Phase 3: Multiplayer + Social** - Real-time play via AppSync Events, lobby system, player profiles, friend system, and PWA installability
 - [ ] **Phase 4: Async + Notifications** - Async turn-based game mode with configurable timers, email notifications, Web Push, and player notification preferences
 - [ ] **Phase 5: AI Game Creation Toolkit** - Local-first C# tool for ingesting rulebooks and generating deployable game packages via LLM pipeline with mandatory human review gate
@@ -114,7 +114,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
-| 2. Azul + First Playable | 3/4 | In Progress|  |
+| 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | TBD | Not started | - |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T16:47:46.713Z"
+last_updated: "2026-03-01T16:54:16.328Z"
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 2 — Azul + First Playable (Plan 02 complete, 2 remaining)
+**Current focus:** Phase 2 — Azul + First Playable (Plan 03 complete, 1 remaining)
 
 ## Current Position
 
 Phase: 2 of 6 (Azul + First Playable)
-Plan: 2 of 4 complete — 2 remaining
-Status: Phase 2 in progress — hooks + server wired, client integration next
-Last activity: 2026-03-01 — Phase 2 Plan 02 complete (server integration: CreateGame, HookExecutor ctx.players, onRoundEnd)
+Plan: 3 of 4 complete — 1 remaining
+Status: Phase 2 in progress — client wiring complete, game creation routes done, all plans complete
+Last activity: 2026-03-01 — Phase 2 Plan 03 complete (client scene: multi-player turn tracking, turn banner, score summary overlay)
 
-Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 2/4 in Phase 2)
+Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 3/4 in Phase 2)
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 2/4 in Phase
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7 | 45 min | 6.4 min |
 | 02-azul-first-playable | 2/4 | 35 min | 17.5 min |
+| Phase 02 P03 | 11 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,10 @@ Recent decisions affecting current work:
 - [Phase 02]: JSON.stringify inside Jint engine for valid moves — JsValue.ToString() returns JS .toString() not JSON
 - [Phase 02-azul-first-playable]: createGame signature updated to (gameId, playerNames[]) — server POST /games body includes playerNames; CreateGameResponse changed to {sessionId, gameId, version}
 - [Phase 02-azul-first-playable]: localStorage key bga2-recent-games holds RecentGame array (prepended, max 20); game list page fetches status in parallel via Promise.all
+- [Phase 02-03]: SceneManagerState uses currentPlayerIndex/playerNames/playerScores arrays (not single playerId) — derived from server GameState
+- [Phase 02-03]: AzulScene two-step interaction: onSourceClick(zoneId, color) → selectSource with blue glow + green destination highlights, onDestinationClick(zoneId) → submit move
+- [Phase 02-03]: Server zone IDs are 1-indexed: player-{n}-pattern-line-{row} where n = playerIndex + 1
+- [Phase 02-03]: Score summary reads player.data.wallScore/rowBonus/colBonus/colorBonus/floorPenalty from server hooks — display only, no client-side scoring
 
 ### Pending Todos
 
@@ -86,11 +91,11 @@ None yet.
 
 - Plan 01 (hooks.ts): COMPLETE — 32 tests passing, tsc clean
 - Plan 02 (server integration): COMPLETE — CreateGame with proper state, HookExecutor ctx.players, onRoundEnd auto-trigger, 84+ valid moves
-- Plan 03: next — client wiring (SceneManager multi-player, turn UI)
-- Plan 04: next — routes and game creation (landing page, game list, CreateGame API)
+- Plan 03 (client scene): COMPLETE — SceneManager multi-player state, AzulScene 2-4 player boards, turn banner, score summary overlay
+- Plan 04 (game creation routes): COMPLETE — landing page, game list, createGame API wired (executed out-of-order before 02-03)
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 02-02-PLAN.md (server integration: CreateGame, HookExecutor ctx.players fix, onRoundEnd)
-Resume file: .planning/phases/02-azul-first-playable/02-03-PLAN.md
+Stopped at: Completed 02-03-PLAN.md (client scene: multi-player turn tracking, turn banner, score summary)
+Resume file: .planning/phases/02-azul-first-playable/ (all plans complete — phase ready for final verification)

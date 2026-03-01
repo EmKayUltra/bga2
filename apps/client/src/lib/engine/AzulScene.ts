@@ -5,7 +5,7 @@
  * This is what proves the renderer abstraction works: swapping PixiAdapter for
  * StubRenderer leaves AzulScene running without errors.
  *
- * Board layout (desktop):
+ * Board layout (desktop, 2 players):
  *   ┌───────────────────────────────────┐
  *   │  Factory displays (top area)      │
  *   │  Center area                      │
@@ -16,6 +16,14 @@
  *   │   floor line     │  floor line   │
  *   └───────────────────────────────────┘
  *
+ * For 3-4 players: boards arranged in a 2x2 grid below the factory area.
+ *
+ * Interaction model (two-step):
+ *   Step 1: Player taps a tile in a factory/center → selectSource(zoneId, color)
+ *             → tiles of that color glow blue, valid destinations glow green
+ *   Step 2: Player taps a highlighted destination (pattern line or floor line)
+ *             → onDestinationClick callback fires → SceneManager submits move
+ *
  * Visual style: light + clean (white/light background, bright tile colors).
  * All art is styled procedural placeholders (colored rounded squares with labels).
  */
@@ -24,22 +32,23 @@ import type {
   IRenderer,
   ISpriteHandle,
   ValidMove,
+  GameState,
 } from '@bga2/shared-types';
 import type { RuntimeGameModel } from '@bga2/engine-core';
-import type { Piece } from '@bga2/engine-core';
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
-const TILE_SIZE = 48;              // px — each tile is 48x48
+const TILE_SIZE = 44;              // px — each tile is 44x44 (slightly smaller for 4P fit)
 const TILE_GAP = 4;               // px — gap between tiles in a zone
-const CELL = TILE_SIZE + TILE_GAP; // 52px — cell stride
-const FACTORY_RADIUS = 68;        // px — factory display circle radius
-const FACTORY_SPACING = 150;      // px — center-to-center distance between factories
-const BOARD_PADDING = 16;         // px — padding inside player board containers
+const CELL = TILE_SIZE + TILE_GAP; // 48px — cell stride
+const FACTORY_RADIUS = 64;        // px — factory display circle radius
+const FACTORY_SPACING = 140;      // px — center-to-center distance between factories
+const BOARD_PADDING = 14;         // px — padding inside player board containers
 
 // Colors
-const SELECTION_GLOW = 0x4a90ff;            // blue selection glow
-const VALID_MOVE_GLOW = 0x22c55e;           // green valid-move highlight
+const SELECTION_GLOW = 0x4a90ff;   // blue — selected source tile
+const VALID_MOVE_GLOW = 0x22c55e;  // green — valid destination
+const ACTIVE_PLAYER_BORDER = 0x4a90ff; // blue border on active player's board
 
 // ─── Azul wall color pattern ─────────────────────────────────────────────────
 // The Azul wall has a fixed color arrangement — each row shifts one position.
@@ -55,13 +64,38 @@ const WALL_PATTERN = [
   [1, 2, 3, 4, 0],  // Row 4: Y R K T B
 ];
 
-// ─── Piece handle map ─────────────────────────────────────────────────────────
+// ─── Color helpers ────────────────────────────────────────────────────────────
 
-/** Tracks sprite handle + position for each rendered piece. */
-interface PieceRenderInfo {
+/** Map piece defId to CSS hex color. */
+const COLOR_MAP: Record<string, string> = {
+  blue: '#4A90D9',
+  yellow: '#F5C542',
+  red: '#E74C3C',
+  black: '#2C3E50',
+  teal: '#1ABC9C',
+  'tile-blue': '#4A90D9',
+  'tile-yellow': '#F5C542',
+  'tile-red': '#E74C3C',
+  'tile-black': '#2C3E50',
+  'tile-teal': '#1ABC9C',
+};
+
+/** Map piece defId to short label. */
+const LABEL_MAP: Record<string, string> = {
+  blue: 'B', yellow: 'Y', red: 'R', black: 'K', teal: 'T',
+  'tile-blue': 'B', 'tile-yellow': 'Y', 'tile-red': 'R', 'tile-black': 'K', 'tile-teal': 'T',
+};
+
+// ─── Sprite handle map ────────────────────────────────────────────────────────
+
+/** Tracks sprite handle + position + metadata for each rendered element. */
+interface SpriteInfo {
   handle: ISpriteHandle;
   x: number;
   y: number;
+  zoneId?: string;   // which zone this element belongs to
+  color?: string;    // tile color (for source matching)
+  pieceId?: string;  // server-side piece instance ID
 }
 
 // ─── AzulScene ────────────────────────────────────────────────────────────────
@@ -70,126 +104,210 @@ export class AzulScene {
   private renderer: IRenderer;
   private model: RuntimeGameModel;
 
-  /** Maps pieceId -> render info */
-  private pieceHandles: Map<string, PieceRenderInfo> = new Map();
-  /** Maps pieceId -> click callback */
-  private pieceClickHandlers: Map<string, () => void> = new Map();
-  /** Currently selected piece ID */
-  private selectedPieceId: string | null = null;
-  /** Valid move destination zone IDs (for highlight) */
-  private highlightedZones: Set<string> = new Set();
+  /** All rendered sprites keyed by a local ID. */
+  private sprites: Map<string, SpriteInfo> = new Map();
+
+  /** Sprites highlighted as valid destinations (for clearing). */
+  private destinationHighlights: Set<string> = new Set();
+  /** Sprites highlighted as selected source tiles (for clearing). */
+  private sourceHighlights: Set<string> = new Set();
+
+  /** Active player board border sprites (keyed by playerIndex). */
+  private boardBorderHandles: Map<number, ISpriteHandle> = new Map();
+
+  /** Callback fired when player clicks a tile in a source zone. */
+  private sourceClickCallback: ((zoneId: string, color: string) => void) | null = null;
+  /** Callback fired when player clicks a destination zone. */
+  private destinationClickCallback: ((zoneId: string) => void) | null = null;
+
+  /** Track which destination zone sprite IDs are clickable. */
+  private destinationZoneIds: Set<string> = new Set();
+
+  /** Sprite ID counter for unique keys. */
+  private spriteCounter = 0;
 
   constructor(renderer: IRenderer, model: RuntimeGameModel) {
     this.renderer = renderer;
     this.model = model;
   }
 
+  // ── Callback registration ─────────────────────────────────────────────────────
+
+  /**
+   * Register callback for source tile clicks (factory/center tiles).
+   */
+  onSourceClick(cb: (zoneId: string, color: string) => void): void {
+    this.sourceClickCallback = cb;
+  }
+
+  /**
+   * Register callback for destination zone clicks (pattern lines / floor line).
+   */
+  onDestinationClick(cb: (zoneId: string) => void): void {
+    this.destinationClickCallback = cb;
+  }
+
   // ── Board rendering ──────────────────────────────────────────────────────────
 
   /**
    * Render the full Azul board.
-   * Creates containers for factory area, center, and player boards.
-   * Positions all zones and renders placeholder tiles.
+   * Accepts optional real GameState for dynamic player count + tile data.
+   * Falls back to model-based rendering if no state provided (offline mode).
    */
-  renderBoard(): void {
-    // Render factory displays at the top
-    this.renderFactoryArea();
+  renderBoard(gameState?: GameState): void {
+    const playerCount = gameState?.players.length ?? 2;
 
-    // Render center area below factories
-    this.renderCenterArea();
+    // Render factory/center area at the top
+    this.renderFactoryArea(gameState);
+    this.renderCenterArea(gameState);
 
-    // Render player boards (for Phase 1: 2 players stacked)
-    this.renderPlayerBoards();
+    // Render player boards
+    this.renderPlayerBoards(playerCount, gameState);
   }
 
   /**
-   * Render factory displays (5 circular zones at the top).
-   * Each factory shows up to 4 colored tiles in a 2x2 arrangement.
+   * Re-render the entire board from new server state.
+   * Clears all existing sprites and redraws.
    */
-  private renderFactoryArea(): void {
-    // Find factory zones from the model
-    const factoryZones = Array.from(this.model.zones.values()).filter(
-      (z) => z.id.startsWith('factory-')
-    );
+  updateFromState(state: GameState): void {
+    this.clearAll();
+    this.renderBoard(state);
+  }
 
-    // Center factory area horizontally in the world (world width = 640)
+  /**
+   * Render factory displays.
+   * Uses real GameState zones if available, otherwise falls back to model zones.
+   */
+  private renderFactoryArea(gameState?: GameState): void {
+    let factoryZoneIds: string[];
+
+    if (gameState) {
+      factoryZoneIds = Object.keys(gameState.zones).filter((id) => /^factory-\d+$/.test(id));
+    } else {
+      factoryZoneIds = Array.from(this.model.zones.keys()).filter((id) => /^factory-\d+$/.test(id));
+    }
+
     const centerX = 320;
     const startY = 80;
+    const count = factoryZoneIds.length;
 
-    factoryZones.forEach((zone, i) => {
-      // Arrange factories in two rows: 3 on top, 2 on bottom centered
-      const row = Math.floor(i / 3);
-      const col = i % 3;
-      // Top row: 3 factories centered; bottom row: 2 factories centered
-      const rowWidth = (row === 0 ? 2 : 1) * FACTORY_SPACING;
-      const rowStartX = centerX - rowWidth / 2;
-      const cx = rowStartX + col * FACTORY_SPACING;
-      const cy = startY + row * (FACTORY_RADIUS * 2 + 20);
+    factoryZoneIds.forEach((zoneId, i) => {
+      // Arrange factories in rows of 3 (top), then remainder (bottom)
+      const perRow = Math.min(3, Math.ceil(count / 2));
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const rowCount = row === 0 ? Math.min(perRow, count) : count - perRow;
+      const rowWidth = (rowCount - 1) * FACTORY_SPACING;
+      const cx = centerX - rowWidth / 2 + col * FACTORY_SPACING;
+      const cy = startY + row * (FACTORY_RADIUS * 2 + 16);
 
-      // Draw factory background circle (styled placeholder)
-      this.drawFactoryBackground(cx, cy);
+      // Draw factory background
+      this.drawFactoryBackground(cx, cy, zoneId);
 
-      // Render pieces in this factory zone (2x2 layout)
-      const pieces = zone.getPieces();
+      // Render tiles from server state or model
+      let pieces: Array<{ defId: string; id: string }> = [];
+      if (gameState && gameState.zones[zoneId]) {
+        pieces = gameState.zones[zoneId].pieces.map((p) => ({ defId: p.defId, id: p.id }));
+      } else {
+        const modelZone = this.model.zones.get(zoneId);
+        if (modelZone) {
+          pieces = modelZone.getPieces().map((p) => ({ defId: p.defId, id: p.id }));
+        }
+      }
+
       const gridW = 2 * TILE_SIZE + TILE_GAP;
-      pieces.forEach((piece, pi) => {
-        const tileCol = pi % 2;
-        const tileRow = Math.floor(pi / 2);
-        const tx = cx - gridW / 2 + tileCol * (TILE_SIZE + TILE_GAP);
-        const ty = cy - gridW / 2 + tileRow * (TILE_SIZE + TILE_GAP);
-        this.renderPiece(piece, tx, ty);
-      });
-
-      // If empty, render placeholder slots
-      if (pieces.length === 0) {
+      if (pieces.length > 0) {
+        pieces.forEach((piece, pi) => {
+          const tileCol = pi % 2;
+          const tileRow = Math.floor(pi / 2);
+          const tx = cx - gridW / 2 + tileCol * (TILE_SIZE + TILE_GAP);
+          const ty = cy - gridW / 2 + tileRow * (TILE_SIZE + TILE_GAP);
+          this.renderSourceTile(tx, ty, piece.defId, piece.id, zoneId);
+        });
+      } else {
         this.drawEmptyFactorySlots(cx, cy);
       }
     });
   }
 
   /**
-   * Render the center area (where leftover tiles accumulate).
+   * Render the center area.
    */
-  private renderCenterArea(): void {
-    const centerZone = this.model.zones.get('center');
-    if (!centerZone) return;
-
+  private renderCenterArea(gameState?: GameState): void {
     const cx = 320;
-    const cy = 340;
-    const width = 260;
-    const height = 50;
+    const cy = 350;
+    const width = 280;
+    const height = 60;
 
-    // Draw center area background (uses center-bg for distinct styling)
     this.drawCenterBackground(cx - width / 2, cy - height / 2, width, height);
 
-    // Render tiles in center (flowing left-to-right)
-    const pieces = centerZone.getPieces();
+    let pieces: Array<{ defId: string; id: string }> = [];
+    if (gameState && gameState.zones['center']) {
+      pieces = gameState.zones['center'].pieces.map((p) => ({ defId: p.defId, id: p.id }));
+    } else {
+      const centerZone = this.model.zones.get('center');
+      if (centerZone) {
+        pieces = centerZone.getPieces().map((p) => ({ defId: p.defId, id: p.id }));
+      }
+    }
+
     pieces.forEach((piece, i) => {
-      const tx = cx - width / 2 + 10 + (i % 4) * (TILE_SIZE + TILE_GAP);
-      const ty = cy - height / 2 + 10 + Math.floor(i / 4) * (TILE_SIZE + TILE_GAP);
-      this.renderPiece(piece, tx, ty);
+      if (piece.defId === 'first-player-token') {
+        // Render first-player token distinctly
+        const tx = cx - width / 2 + 10;
+        const ty = cy - height / 2 + 8;
+        this.renderPrimitiveTile(tx, ty, '#FFFFFF', '1', `center:fpt:${i}`);
+        return;
+      }
+      const col = i % 5;
+      const row = Math.floor(i / 5);
+      const tx = cx - width / 2 + 10 + col * (TILE_SIZE + TILE_GAP);
+      const ty = cy - height / 2 + 8 + row * (TILE_SIZE + TILE_GAP);
+      this.renderSourceTile(tx, ty, piece.defId, piece.id, 'center');
     });
   }
 
   /**
-   * Render player boards in a two-column layout.
-   * Each board shows: pattern lines (5 rows), wall (5x5 grid), floor line (1x7).
+   * Render player boards in an appropriate layout:
+   * - 2 players: side-by-side (or stacked if narrow)
+   * - 3 players: 2 on top, 1 on bottom (centered)
+   * - 4 players: 2x2 grid
    */
-  private renderPlayerBoards(): void {
-    // pattern (5 cells) + gap + wall (5 cells) = 10*CELL + 16 = 536, + 2*padding
-    const boardWidth = 10 * CELL + 16 + 2 * BOARD_PADDING;  // 552
-    // 5 pattern rows + floor gap + floor row + label + padding
-    const boardHeight = 5 * CELL + 8 + CELL + 20 + 2 * BOARD_PADDING; // 360
-    const boardStartY = 390;
+  private renderPlayerBoards(playerCount: number, gameState?: GameState): void {
+    const playerNames = gameState?.players.map((p) => p.name) ?? ['Player 1', 'Player 2'];
+    const activeIndex = gameState?.currentPlayerIndex ?? 0;
 
-    // Phase 1: render two player boards stacked vertically (fits better)
-    // Center horizontally in world (world width = 640)
-    const playerNames = ['Player 1', 'Player 2'];
-    playerNames.forEach((name, i) => {
-      const bx = (640 - boardWidth) / 2;
-      const by = boardStartY + i * (boardHeight + 16);
-      this.renderPlayerBoard(bx, by, boardWidth, boardHeight, name, i);
-    });
+    // Board dimensions
+    const boardWidth = 10 * CELL + 16 + 2 * BOARD_PADDING;
+    const boardHeight = 5 * CELL + 8 + CELL + 20 + 2 * BOARD_PADDING;
+    const boardStartY = 420;
+    const worldW = 640;
+    const boardGap = 12;
+
+    // Determine layout based on player count
+    const cols = playerCount <= 2 ? 1 : 2;
+    const colW = cols === 1
+      ? boardWidth
+      : Math.min(boardWidth, (worldW - boardGap * (cols - 1)) / cols);
+
+    for (let i = 0; i < playerCount; i++) {
+      const col = playerCount <= 2 ? 0 : (i % 2);
+      const row = playerCount <= 2 ? i : Math.floor(i / 2);
+
+      let bx: number;
+      if (playerCount <= 2) {
+        // Single column, centered
+        bx = (worldW - boardWidth) / 2;
+      } else {
+        // Two columns
+        const totalW = cols * colW + (cols - 1) * boardGap;
+        bx = (worldW - totalW) / 2 + col * (colW + boardGap);
+      }
+      const by = boardStartY + row * (boardHeight + boardGap);
+      const isActive = i === activeIndex;
+
+      this.renderPlayerBoard(bx, by, colW, boardHeight, playerNames[i] ?? `Player ${i + 1}`, i, isActive, gameState);
+    }
   }
 
   /**
@@ -201,10 +319,24 @@ export class AzulScene {
     width: number,
     height: number,
     playerName: string,
-    playerIndex: number
+    playerIndex: number,
+    isActive: boolean,
+    gameState?: GameState
   ): void {
-    // Board background
-    this.drawZoneBackground(bx, by, width, height, '', playerName);
+    // Board background (with active player border)
+    const bgKey = `board-bg:${playerIndex}`;
+    const bgHandle = this.renderer.createSprite(
+      `zone-bg:${bx}:${by}:${width}:${height}:${isActive ? 'active' : 'inactive'}:${playerName}`
+    );
+    this.renderer.addToStage(bgHandle);
+    this.renderer.setPosition(bgHandle, bx, by);
+    this.sprites.set(bgKey, { handle: bgHandle, x: bx, y: by });
+
+    if (isActive) {
+      // Store border handle for later updates
+      this.boardBorderHandles.set(playerIndex, bgHandle);
+      this.renderer.applyGlow(bgHandle, ACTIVE_PLAYER_BORDER, 1);
+    }
 
     const contentX = bx + BOARD_PADDING;
     const contentY = by + BOARD_PADDING + 20; // 20px for label area
@@ -212,231 +344,277 @@ export class AzulScene {
     // Pattern lines (left side) — rows 1-5, right-aligned
     for (let row = 0; row < 5; row++) {
       const numCols = row + 1;
-      const rightEdgeX = contentX + 5 * CELL - TILE_GAP; // align right edge
+      const rightEdgeX = contentX + 5 * CELL - TILE_GAP;
       const lineY = contentY + row * CELL;
 
-      const zoneId = `player-pattern-line-${row + 1}`;
-      const zone = this.model.zones.get(zoneId);
-      const pieces = zone?.getPieces() ?? [];
+      // Zone ID in server state: "player-{i+1}-pattern-line-{row+1}"
+      const serverZoneId = `player-${playerIndex + 1}-pattern-line-${row + 1}`;
+      const localZoneId = `player-pattern-line-${row + 1}`;
+
+      let pieces: Array<{ defId: string; id: string }> = [];
+      if (gameState && gameState.zones[serverZoneId]) {
+        pieces = gameState.zones[serverZoneId].pieces.map((p) => ({ defId: p.defId, id: p.id }));
+      } else {
+        const zone = this.model.zones.get(localZoneId);
+        if (zone) {
+          pieces = zone.getPieces().map((p) => ({ defId: p.defId, id: p.id }));
+        }
+      }
 
       for (let col = 0; col < numCols; col++) {
         const tx = rightEdgeX - (numCols - col) * CELL + TILE_GAP;
         const ty = lineY;
 
         if (col < pieces.length) {
-          this.renderPiece(pieces[col], tx, ty);
+          const piece = pieces[col];
+          const color = COLOR_MAP[piece.defId] ?? '#888';
+          const label = LABEL_MAP[piece.defId] ?? '?';
+          const key = `pattern:${playerIndex}:${row}:${col}`;
+          this.renderPrimitiveTile(tx, ty, color, label, key);
         } else {
-          this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE);
+          // Empty slot — make it clickable as a destination (only for pattern line slots)
+          const key = `pattern-slot:${playerIndex}:${row}:${col}`;
+          const slotHandle = this.drawEmptySlot(tx, ty, TILE_SIZE, TILE_SIZE);
+          this.sprites.set(key, { handle: slotHandle, x: tx, y: ty, zoneId: serverZoneId });
+
+          // Register as destination click target
+          this.renderer.setInteractive(slotHandle, true);
+          this.renderer.onPointerDown(slotHandle, () => {
+            this.destinationClickCallback?.(serverZoneId);
+          });
+          this.destinationZoneIds.add(serverZoneId);
         }
       }
     }
 
     // Wall (right side of pattern lines) — 5x5 grid with Azul color pattern
     const wallX = contentX + 5 * CELL + 12;
+    const serverWallZoneId = `player-${playerIndex + 1}-wall`;
+
+    // Get placed wall tiles from server state
+    const wallPieces = gameState?.zones[serverWallZoneId]?.pieces ?? [];
+
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 5; col++) {
         const tx = wallX + col * CELL;
         const ty = contentY + row * CELL;
-        // Use the Azul wall color pattern for ghost-colored slots
         const colorIdx = WALL_PATTERN[row][col];
         const wallColor = AZUL_TILE_COLORS[colorIdx];
-        this.drawWallSlot(tx, ty, TILE_SIZE, TILE_SIZE, wallColor);
+
+        // Check if this cell has a tile placed
+        const placedTile = wallPieces.find((p) => {
+          const pos = p.position as { row?: number; col?: number } | undefined;
+          return pos && pos.row === row && pos.col === col;
+        });
+
+        if (placedTile) {
+          const color = COLOR_MAP[placedTile.defId] ?? wallColor;
+          const label = LABEL_MAP[placedTile.defId] ?? '?';
+          this.renderPrimitiveTile(tx, ty, color, label, `wall:${playerIndex}:${row}:${col}`);
+        } else {
+          this.drawWallSlot(tx, ty, TILE_SIZE, TILE_SIZE, wallColor);
+        }
       }
     }
 
     // Floor line (bottom) — 7 slots
     const floorY = contentY + 5 * CELL + 8;
-    const floorZone = this.model.zones.get('player-floor-line');
-    const floorPieces = floorZone?.getPieces() ?? [];
-    for (let col = 0; col < 7; col++) {
-      const tx = contentX + col * CELL;
-      if (col < floorPieces.length) {
-        this.renderPiece(floorPieces[col], tx, floorY);
-      } else {
-        this.drawEmptySlot(tx, floorY, TILE_SIZE, TILE_SIZE);
+    const serverFloorZoneId = `player-${playerIndex + 1}-floor-line`;
+    const localFloorZoneId = 'player-floor-line';
+
+    let floorPieces: Array<{ defId: string; id: string }> = [];
+    if (gameState && gameState.zones[serverFloorZoneId]) {
+      floorPieces = gameState.zones[serverFloorZoneId].pieces.map((p) => ({ defId: p.defId, id: p.id }));
+    } else {
+      const floorZone = this.model.zones.get(localFloorZoneId);
+      if (floorZone) {
+        floorPieces = floorZone.getPieces().map((p) => ({ defId: p.defId, id: p.id }));
       }
     }
 
-    // Suppress playerIndex lint warning — used for future per-player data
-    void playerIndex;
+    for (let col = 0; col < 7; col++) {
+      const tx = contentX + col * CELL;
+
+      if (col < floorPieces.length) {
+        const piece = floorPieces[col];
+        const color = COLOR_MAP[piece.defId] ?? '#888';
+        const label = LABEL_MAP[piece.defId] ?? '?';
+        this.renderPrimitiveTile(tx, floorY, color, label, `floor:${playerIndex}:${col}`);
+      } else {
+        // Empty floor slot — clickable as destination (floor line = patternLineRow 0)
+        const key = `floor-slot:${playerIndex}:${col}`;
+        const slotHandle = this.drawEmptySlot(tx, floorY, TILE_SIZE, TILE_SIZE);
+        this.sprites.set(key, { handle: slotHandle, x: tx, y: floorY, zoneId: serverFloorZoneId });
+
+        this.renderer.setInteractive(slotHandle, true);
+        this.renderer.onPointerDown(slotHandle, () => {
+          this.destinationClickCallback?.(serverFloorZoneId);
+        });
+        this.destinationZoneIds.add(serverFloorZoneId);
+      }
+    }
+  }
+
+  // ── Interaction methods ───────────────────────────────────────────────────────
+
+  /**
+   * Select a source zone: highlight tiles of the specified color with blue glow,
+   * then highlight valid destination pattern lines with green glow.
+   */
+  selectSource(zoneId: string, color: string, validMoves: ValidMove[]): void {
+    this.clearSelectionHighlights();
+
+    // Highlight matching tiles in the source zone with blue glow
+    for (const [key, info] of this.sprites) {
+      if (info.zoneId === zoneId && info.color === color) {
+        this.renderer.applyGlow(info.handle, SELECTION_GLOW, 3);
+        this.sourceHighlights.add(key);
+      }
+    }
+
+    // Highlight valid destination zones with green glow
+    this.highlightValidDestinations(validMoves);
+  }
+
+  /**
+   * Deselect the current source — clear all selection and destination highlights.
+   */
+  deselectSource(): void {
+    this.clearSelectionHighlights();
+  }
+
+  /**
+   * Highlight valid destination zones (pattern lines + floor line) with green glow.
+   */
+  highlightValidDestinations(validMoves: ValidMove[]): void {
+    // Clear previous destination highlights
+    for (const key of this.destinationHighlights) {
+      const info = this.sprites.get(key);
+      if (info) this.renderer.removeGlow(info.handle);
+    }
+    this.destinationHighlights.clear();
+
+    // Collect target zone IDs from valid moves
+    const validTargetZones = new Set<string>();
+    for (const vm of validMoves) {
+      if (vm.target) validTargetZones.add(vm.target);
+    }
+
+    // Apply green glow to destination slots in valid zones
+    for (const [key, info] of this.sprites) {
+      if (info.zoneId && validTargetZones.has(info.zoneId)) {
+        this.renderer.applyGlow(info.handle, VALID_MOVE_GLOW, 2);
+        this.destinationHighlights.add(key);
+      }
+    }
+  }
+
+  /**
+   * Set the active player — add colored border to their board, remove from others.
+   */
+  setActivePlayer(playerIndex: number): void {
+    // Remove all board glows
+    for (const [idx, handle] of this.boardBorderHandles) {
+      if (idx !== playerIndex) {
+        this.renderer.removeGlow(handle);
+      }
+    }
+
+    // Apply to new active player
+    const activeHandle = this.boardBorderHandles.get(playerIndex);
+    if (activeHandle) {
+      this.renderer.applyGlow(activeHandle, ACTIVE_PLAYER_BORDER, 1);
+    }
+  }
+
+  /**
+   * Animate tiles moving from source zone to destination zone.
+   * Finds sprites in the source zone with the given color and animates them.
+   */
+  async animateMove(sourceZone: string, color: string, targetZoneId: string): Promise<void> {
+    // Find target position (first slot in destination zone)
+    let targetX = 320;
+    let targetY = 400;
+    for (const [, info] of this.sprites) {
+      if (info.zoneId === targetZoneId) {
+        targetX = info.x;
+        targetY = info.y;
+        break;
+      }
+    }
+
+    // Animate all source tiles of this color
+    const animations: Promise<void>[] = [];
+    for (const [, info] of this.sprites) {
+      if (info.zoneId === sourceZone && info.color === color) {
+        animations.push(
+          this.renderer.animateTo(info.handle, targetX, targetY, {
+            duration: 350,
+            easing: 'easeOutBack',
+          })
+        );
+      }
+    }
+
+    if (animations.length > 0) {
+      await Promise.all(animations);
+    }
   }
 
   // ── Piece rendering ──────────────────────────────────────────────────────────
 
   /**
-   * Render a single piece at the given world position.
-   * Creates a sprite using renderer.createSprite. If no asset, the PixiAdapter
-   * uses a procedural colored rectangle fallback with the piece color.
-   *
-   * The textureId encodes piece color info so the adapter can use it for the
-   * procedural fallback color. Format: "piece:{defId}:{color}:{label}"
+   * Render a source tile (in factory or center) that can be clicked.
    */
-  renderPiece(piece: Piece, x: number, y: number): ISpriteHandle {
-    const fb = piece.fallback;
-    const textureId = `piece:${piece.defId}:${fb.color}:${fb.label}`;
-    const handle = this.renderer.createSprite(textureId);
+  private renderSourceTile(
+    x: number, y: number,
+    defId: string, pieceId: string,
+    zoneId: string
+  ): void {
+    const color = COLOR_MAP[defId] ?? '#888888';
+    const label = LABEL_MAP[defId] ?? '?';
+    const key = `src:${zoneId}:${pieceId}`;
 
+    const textureId = `piece:${defId}:${color}:${label}`;
+    const handle = this.renderer.createSprite(textureId);
     this.renderer.setInteractive(handle, true);
     this.renderer.addToStage(handle);
     this.renderer.setPosition(handle, x, y);
 
-    // Store position info
-    this.pieceHandles.set(piece.id, { handle, x, y });
+    this.sprites.set(key, { handle, x, y, zoneId, color: defId, pieceId });
 
-    return handle;
-  }
-
-  /**
-   * Register a click handler for a piece by ID.
-   * Called by SceneManager to wire up interaction.
-   */
-  onPieceClick(pieceId: string, cb: () => void): void {
-    const info = this.pieceHandles.get(pieceId);
-    if (info) {
-      this.renderer.onPointerDown(info.handle, cb);
-      this.pieceClickHandlers.set(pieceId, cb);
-    }
-  }
-
-  // ── Selection & highlighting ──────────────────────────────────────────────────
-
-  /**
-   * Select a piece and apply blue selection glow.
-   */
-  selectPiece(pieceId: string): void {
-    const info = this.pieceHandles.get(pieceId);
-    if (info) {
-      this.renderer.applyGlow(info.handle, SELECTION_GLOW, 3);
-      this.selectedPieceId = pieceId;
-    }
-  }
-
-  /**
-   * Deselect the current piece, removing its glow.
-   */
-  deselectPiece(): void {
-    if (this.selectedPieceId) {
-      const info = this.pieceHandles.get(this.selectedPieceId);
-      if (info) {
-        this.renderer.removeGlow(info.handle);
-      }
-      this.selectedPieceId = null;
-    }
-  }
-
-  /** Return the currently selected piece ID, or null. */
-  getSelectedPieceId(): string | null {
-    return this.selectedPieceId;
-  }
-
-  /**
-   * Highlight valid move destinations with green glow.
-   * Finds all pieces in the valid target zones and applies glow to them.
-   */
-  highlightValidMoves(validMoves: ValidMove[]): void {
-    this.clearHighlights();
-
-    // Collect all target zone IDs from the valid moves
-    const targetZoneIds = new Set(
-      validMoves.filter((m) => m.target).map((m) => m.target!)
-    );
-
-    this.highlightedZones = targetZoneIds;
-
-    // Apply green glow to pieces in valid destination zones
-    for (const [pieceId, info] of this.pieceHandles) {
-      const piece = this.model.pieces.find((p) => p.id === pieceId);
-      if (piece && targetZoneIds.has(piece.zoneId)) {
-        this.renderer.applyGlow(info.handle, VALID_MOVE_GLOW, 2);
-      }
-    }
-  }
-
-  /**
-   * Remove all valid-move highlights (does not affect selection glow).
-   */
-  clearHighlights(): void {
-    for (const [pieceId, info] of this.pieceHandles) {
-      const piece = this.model.pieces.find((p) => p.id === pieceId);
-      if (piece && this.highlightedZones.has(piece.zoneId)) {
-        this.renderer.removeGlow(info.handle);
-      }
-    }
-    this.highlightedZones.clear();
-  }
-
-  // ── Animation ────────────────────────────────────────────────────────────────
-
-  /**
-   * Animate a piece to a new world position with snappy overshoot easing.
-   */
-  async animatePiece(pieceId: string, targetX: number, targetY: number): Promise<void> {
-    const info = this.pieceHandles.get(pieceId);
-    if (!info) return;
-
-    await this.renderer.animateTo(info.handle, targetX, targetY, {
-      duration: 350,
-      easing: 'easeOutBack',
-    });
-
-    // Update stored position
-    info.x = targetX;
-    info.y = targetY;
-  }
-
-  /**
-   * Brief scale pulse when a tile locks into the wall.
-   * Implemented as a fast animate-to-same-position (creates the snappy feel).
-   */
-  async playPlacementFeedback(pieceId: string): Promise<void> {
-    const info = this.pieceHandles.get(pieceId);
-    if (!info) return;
-
-    // Animate to same position with a short duration — easeOutBack creates the pulse
-    await this.renderer.animateTo(info.handle, info.x, info.y, {
-      duration: 180,
-      easing: 'easeOutBack',
+    // Wire source click
+    this.renderer.onPointerDown(handle, () => {
+      this.sourceClickCallback?.(zoneId, defId);
     });
   }
 
-  // ── Scene update ─────────────────────────────────────────────────────────────
-
   /**
-   * Re-render all pieces based on current model zone assignments.
-   * Called after a move is applied to refresh the visual state.
+   * Render a plain tile (non-interactive wall or pattern line tile).
    */
-  updateScene(): void {
-    // For Phase 1, re-render means removing old sprites and re-drawing
-    // In Phase 2 we'd do smart incremental updates
-    for (const [, info] of this.pieceHandles) {
-      this.renderer.removeFromStage(info.handle);
-    }
-    this.pieceHandles.clear();
-    this.pieceClickHandlers.clear();
-    this.selectedPieceId = null;
-    this.highlightedZones.clear();
-
-    this.renderBoard();
+  private renderPrimitiveTile(
+    x: number, y: number,
+    color: string, label: string,
+    key: string
+  ): void {
+    const textureId = `piece:${label}:${color}:${label}`;
+    const handle = this.renderer.createSprite(textureId);
+    this.renderer.addToStage(handle);
+    this.renderer.setPosition(handle, x, y);
+    this.sprites.set(key, { handle, x, y });
   }
 
   // ── Visual primitives ────────────────────────────────────────────────────────
 
-  /**
-   * Draw the background circle for a factory display.
-   * Uses a container sprite with a placeholder texture key.
-   */
-  private drawFactoryBackground(cx: number, cy: number): void {
-    const handle = this.renderer.createSprite(`factory-bg:${cx}:${cy}`);
+  private drawFactoryBackground(cx: number, cy: number, zoneId: string): void {
+    const handle = this.renderer.createSprite(`factory-bg:${zoneId}:${cx}:${cy}`);
     this.renderer.addToStage(handle);
     this.renderer.setPosition(handle, cx, cy);
+    this.sprites.set(`factory-bg:${zoneId}`, { handle, x: cx, y: cy });
   }
 
-  /**
-   * Draw empty placeholder slots inside an empty factory (4 greyed squares).
-   */
   private drawEmptyFactorySlots(cx: number, cy: number): void {
-    // Center a 2x2 grid within the factory circle
-    const gridW = 2 * TILE_SIZE + TILE_GAP; // 100
+    const gridW = 2 * TILE_SIZE + TILE_GAP;
     for (let i = 0; i < 4; i++) {
       const col = i % 2;
       const row = Math.floor(i / 2);
@@ -446,48 +624,136 @@ export class AzulScene {
     }
   }
 
-  /**
-   * Draw a zone background rectangle with a label.
-   */
-  private drawZoneBackground(
-    x: number, y: number, width: number, height: number,
-    _color: string, _label: string
-  ): void {
-    const handle = this.renderer.createSprite(`zone-bg:${x}:${y}:${width}:${height}`);
-    this.renderer.addToStage(handle);
-    this.renderer.setPosition(handle, x, y);
-  }
-
-  /**
-   * Draw a single empty slot (grid cell / pattern line position).
-   */
-  private drawEmptySlot(
-    x: number, y: number, width: number, height: number
-  ): void {
+  private drawEmptySlot(x: number, y: number, width: number, height: number): ISpriteHandle {
+    const key = `slot:${this.spriteCounter++}:${x}:${y}`;
     const handle = this.renderer.createSprite(`slot:${x}:${y}:${width}:${height}`);
     this.renderer.addToStage(handle);
     this.renderer.setPosition(handle, x, y);
+    // Don't add to sprites map here — caller may add with richer metadata
+    void key;
+    return handle;
   }
 
-  /**
-   * Draw a wall slot with the Azul ghost color pattern.
-   */
-  private drawWallSlot(
-    x: number, y: number, width: number, height: number, colorHex: string
-  ): void {
+  private drawWallSlot(x: number, y: number, width: number, height: number, colorHex: string): void {
     const handle = this.renderer.createSprite(`wall-slot:${x}:${y}:${width}:${height}:${colorHex}`);
     this.renderer.addToStage(handle);
     this.renderer.setPosition(handle, x, y);
   }
 
-  /**
-   * Draw a center area background with distinct styling.
-   */
-  private drawCenterBackground(
-    x: number, y: number, width: number, height: number
-  ): void {
+  private drawCenterBackground(x: number, y: number, width: number, height: number): void {
     const handle = this.renderer.createSprite(`center-bg:${x}:${y}:${width}:${height}`);
     this.renderer.addToStage(handle);
     this.renderer.setPosition(handle, x, y);
+  }
+
+  // ── Internal helpers ──────────────────────────────────────────────────────────
+
+  /**
+   * Clear all selection and destination highlights without removing sprites.
+   */
+  private clearSelectionHighlights(): void {
+    for (const key of this.sourceHighlights) {
+      const info = this.sprites.get(key);
+      if (info) this.renderer.removeGlow(info.handle);
+    }
+    this.sourceHighlights.clear();
+
+    for (const key of this.destinationHighlights) {
+      const info = this.sprites.get(key);
+      if (info) this.renderer.removeGlow(info.handle);
+    }
+    this.destinationHighlights.clear();
+  }
+
+  /**
+   * Clear all sprites from the stage (for updateFromState full re-render).
+   */
+  private clearAll(): void {
+    for (const [, info] of this.sprites) {
+      this.renderer.removeFromStage(info.handle);
+    }
+    this.sprites.clear();
+    this.sourceHighlights.clear();
+    this.destinationHighlights.clear();
+    this.destinationZoneIds.clear();
+    this.boardBorderHandles.clear();
+    this.spriteCounter = 0;
+  }
+
+  // ── Legacy compatibility (kept for tests that may call these) ─────────────────
+
+  /**
+   * @deprecated Use selectSource() instead. Kept for backward compatibility.
+   */
+  selectPiece(pieceId: string): void {
+    // No-op in Phase 2 — selectSource is the new API
+    void pieceId;
+  }
+
+  /**
+   * @deprecated Use deselectSource() instead.
+   */
+  deselectPiece(): void {
+    this.deselectSource();
+  }
+
+  /**
+   * @deprecated
+   */
+  getSelectedPieceId(): string | null {
+    return null;
+  }
+
+  /**
+   * @deprecated Use highlightValidDestinations() instead.
+   */
+  highlightValidMoves(validMoves: ValidMove[]): void {
+    this.highlightValidDestinations(validMoves);
+  }
+
+  /**
+   * @deprecated Use deselectSource() instead.
+   */
+  clearHighlights(): void {
+    this.clearSelectionHighlights();
+  }
+
+  /**
+   * @deprecated Use updateFromState() instead.
+   */
+  updateScene(): void {
+    this.clearAll();
+    this.renderBoard();
+  }
+
+  /**
+   * @deprecated Use renderSourceTile-based approach.
+   * Kept for compatibility with any code that calls onPieceClick on AzulScene.
+   */
+  onPieceClick(_pieceId: string, _cb: () => void): void {
+    // No-op — click wiring is now done inside AzulScene via onSourceClick/onDestinationClick
+  }
+
+  /**
+   * @deprecated Use animateMove() instead.
+   */
+  async animatePiece(pieceId: string, targetX: number, targetY: number): Promise<void> {
+    // Find any sprite and animate it
+    for (const [key, info] of this.sprites) {
+      if (key.includes(pieceId)) {
+        await this.renderer.animateTo(info.handle, targetX, targetY, {
+          duration: 350,
+          easing: 'easeOutBack',
+        });
+        return;
+      }
+    }
+  }
+
+  /**
+   * @deprecated
+   */
+  async playPlacementFeedback(_pieceId: string): Promise<void> {
+    // No-op in Phase 2
   }
 }

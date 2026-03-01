@@ -77,7 +77,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Platform
 
-- [ ] **PLAT-01**: User can sign up, log in, and maintain session across browser refresh
+- [x] **PLAT-01**: User can sign up, log in, and maintain session across browser refresh
 - [ ] **PLAT-02**: PWA installable from browser with service worker
 - [ ] **PLAT-03**: Freemium subscription with premium game/feature access (Stripe)
 
@@ -148,7 +148,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AZUL-03 | Phase 2 | Complete |
 | AZUL-04 | Phase 2 | Complete |
 | AZUL-05 | Phase 2 | Complete |
-| PLAT-01 | Phase 2 | Pending |
+| PLAT-01 | Phase 2 | Complete |
 | MULT-01 | Phase 3 | Pending |
 | MULT-03 | Phase 3 | Pending |
 | MULT-04 | Phase 3 | Pending |

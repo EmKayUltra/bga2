@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T16:39:50.294Z"
+last_updated: "2026-03-01T16:47:46.713Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 - [Phase 02]: TypeScript param annotation stripping restricted to PascalCase types + known primitives to avoid mangling object literals
 - [Phase 02]: tile defId uses plain color name (blue not tile-blue) to match WALL_PATTERN constants in hooks.ts
 - [Phase 02]: JSON.stringify inside Jint engine for valid moves — JsValue.ToString() returns JS .toString() not JSON
+- [Phase 02-azul-first-playable]: createGame signature updated to (gameId, playerNames[]) — server POST /games body includes playerNames; CreateGameResponse changed to {sessionId, gameId, version}
+- [Phase 02-azul-first-playable]: localStorage key bga2-recent-games holds RecentGame array (prepended, max 20); game list page fetches status in parallel via Promise.all
 
 ### Pending Todos
 

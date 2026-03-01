@@ -12,7 +12,7 @@ BGA2 is built in six phases, each leaving the system in a demonstrable state. Th
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Engine Foundation** - Game engine primitives, renderer abstraction, FSM runtime, game hook contract, and Dockerized dev environment — the shared foundation everything else builds on
+- [x] **Phase 1: Engine Foundation** - Game engine primitives, renderer abstraction, FSM runtime, game hook contract, and Dockerized dev environment — the shared foundation everything else builds on
 - [ ] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, PostgreSQL persistence, REST API, and SvelteKit game view
 - [ ] **Phase 3: Multiplayer + Social** - Real-time play via AppSync Events, lobby system, player profiles, friend system, and PWA installability
 - [ ] **Phase 4: Async + Notifications** - Async turn-based game mode with configurable timers, email notifications, Web Push, and player notification preferences

@@ -65,8 +65,11 @@ Any board game can be faithfully digitized and played online — the engine hand
 | Games as data + script hooks (not standalone codebases) | Consistent player experience, shared engine handles hard problems | — Pending |
 | Server-authoritative game state | Prevents cheating/manipulation; client-side optimization researched later | — Pending |
 | Renderer abstraction layer | Rendering tech likely to change; isolate to enable swapping without rewrites | — Pending |
-| Serverless infrastructure | Small budget; leverage AWS Lambda, DynamoDB, S3, CloudFront | — Pending |
+| Serverless infrastructure | Small budget; leverage AWS Lambda, S3, CloudFront; PostgreSQL replaces DynamoDB | — Pending |
 | Azul as first game | Medium complexity, exercises core primitives, clear rules, good test case | — Pending |
+| PostgreSQL over DynamoDB | Relational model fits game data naturally; game state as JSONB | Decided (Phase 1) |
+| C# API as Lambda (not persistent server) | API is stateless per-request (load state → validate → write back); Lambda Native AOT keeps it serverless and pay-per-use; Docker container for dev only | Decided — research Jint cold-start on Native AOT before Phase 3 |
+| Real-time relay layer (AppSync Events vs alternatives) | Game logic runs in Lambda; real-time player sync is a separate thin relay that broadcasts state changes without enforcing rules. Options: AppSync Events (AWS-native, managed pub/sub), Cloudflare Workers (proven lightweight pattern, multi-cloud), API Gateway WebSockets (AWS-native, more manual). Prior experience with CF Workers for relay-only multiplayer. | Pending — research before Phase 3 |
 
 ---
-*Last updated: 2026-02-28 after initialization*
+*Last updated: 2026-03-01 after Phase 1 architecture review*

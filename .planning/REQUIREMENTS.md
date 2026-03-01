@@ -72,8 +72,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFR-01**: All services build and run via Docker containers — no local tool dependencies beyond Docker
-- [ ] **INFR-02**: Docker Compose orchestrates the full local development stack (frontend, API, database, etc.)
+- [x] **INFR-01**: All services build and run via Docker containers — no local tool dependencies beyond Docker
+- [x] **INFR-02**: Docker Compose orchestrates the full local development stack (frontend, API, database, etc.)
 
 ### Platform
 
@@ -141,8 +141,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENG-08 | Phase 1 | Pending |
 | ENG-09 | Phase 1 | Pending |
 | ENG-10 | Phase 1 | Pending |
-| INFR-01 | Phase 1 | Pending |
-| INFR-02 | Phase 1 | Pending |
+| INFR-01 | Phase 1 | Complete |
+| INFR-02 | Phase 1 | Complete |
 | AZUL-01 | Phase 2 | Pending |
 | AZUL-02 | Phase 2 | Pending |
 | AZUL-03 | Phase 2 | Pending |

@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 1 of 6 (Engine Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-28 — Roadmap created; 6 phases defined, 45 v1 requirements mapped
+Plan: 1 of TBD in current phase (01-01 complete)
+Status: In progress — ready for next plan
+Last activity: 2026-03-01 — Plan 01-01 complete: NX monorepo scaffold + Docker Compose 4-service stack
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] ~5%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1
+- Average duration: 4 min
+- Total execution time: 4 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-engine-foundation | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: none yet
-- Trend: -
+- Last 5 plans: 01-01 (4 min)
+- Trend: baseline established
 
 *Updated after each plan completion*
 
@@ -52,6 +52,10 @@ Recent decisions affecting current work:
 - [Phase 1]: Click-to-select/place interaction, glow + highlight feedback, snappy overshoot animations, speculative select on opponent turns
 - [Phase 1]: Data-heavy game.json + TypeScript hooks, hybrid zones, sprite + procedural fallback pieces
 - [Phase 1]: Warm textured aesthetic (tabletop feel), adaptive layout, styled placeholders
+- [01-01]: Used @sveltejs/adapter-node over adapter-auto — Node.js adapter required for Docker containerized deployment
+- [01-01]: Docker Compose build context at workspace root — enables Dockerfiles to COPY from any workspace path including libs/
+- [01-01]: NX projects use explicit project.json (not inference) — full visibility and control over all 6 project targets
+- [01-01]: npm workspaces use plain version range * not workspace: protocol — workspace: is pnpm/yarn only
 
 ### Pending Todos
 
@@ -65,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Phase 1 context re-verified with user input — corrected visual style (light+clean), added LocalStack, games as external packages model. Ready for /gsd:plan-phase 1
-Resume file: .planning/phases/01-engine-foundation/01-CONTEXT.md
+Last session: 2026-03-01
+Stopped at: Completed 01-01-PLAN.md — NX monorepo scaffold + Docker Compose 4-service stack. INFR-01 and INFR-02 requirements complete.
+Resume file: .planning/phases/01-engine-foundation/01-01-SUMMARY.md

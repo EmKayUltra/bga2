@@ -1,5 +1,5 @@
 {
-	"extends": "../../tsconfig.base.json",
+	"extends": ["./.svelte-kit/tsconfig.json", "../../tsconfig.base.json"],
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": true,
@@ -13,5 +13,14 @@
 		"noEmit": true,
 		"types": ["vitest/globals"]
 	},
-	"include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
+	"include": [
+		".svelte-kit/ambient.d.ts",
+		".svelte-kit/non-ambient.d.ts",
+		".svelte-kit/types/**/$types.d.ts",
+		"src/**/*.d.ts",
+		"src/**/*.ts",
+		"src/**/*.js",
+		"src/**/*.svelte",
+		"vite.config.ts"
+	]
 }

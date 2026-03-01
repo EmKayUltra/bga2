@@ -567,6 +567,10 @@ describe('onRoundEnd', () => {
 
   it('AZUL-05: floor line cleared and tiles moved to lid after penalties', () => {
     const state = makeState(5, 2);
+    // Add bag tiles so lid is not consumed for factory refill
+    state.zones['bag'].pieces = Array.from({ length: 40 }, (_, i) =>
+      makePiece(`bagx-${i}`, ['blue', 'red', 'yellow', 'black', 'white'][i % 5], 'bag')
+    );
     state.zones['player-0-floor-line'].pieces = [pid('blue'), pid('red')];
     (state.players[0].data as Record<string, unknown>).floorLine = ['blue', 'red'];
     const ctx = makeCtx(state);
@@ -574,7 +578,10 @@ describe('onRoundEnd', () => {
     onRoundEnd(ctx);
 
     expect(state.zones['player-0-floor-line'].pieces.length).toBe(0);
-    expect(state.zones['lid'].pieces.length).toBeGreaterThan(0);
+    // Lid should contain the floor tiles (blue and red from player-0)
+    const lidDefIds = state.zones['lid'].pieces.map(p => p.defId);
+    expect(lidDefIds).toContain('blue');
+    expect(lidDefIds).toContain('red');
   });
 
   it('AZUL-02: incomplete pattern line tiles stay (not moved to wall)', () => {

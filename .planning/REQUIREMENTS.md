@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **ENG-01**: Game engine provides zone/board primitives (grids, freeform areas, hands, decks, discard piles)
 - [x] **ENG-02**: Game engine provides piece primitives (cards, tokens, tiles, dice) with properties and state
-- [ ] **ENG-03**: Game engine provides hierarchical FSM runtime (Game > Phase > Turn > Stage) with parallel regions
+- [x] **ENG-03**: Game engine provides hierarchical FSM runtime (Game > Phase > Turn > Stage) with parallel regions
 - [ ] **ENG-04**: Server validates every move against state machine + game hooks; client never enforces rules
 - [ ] **ENG-05**: Client receives validMoves[] from server for legal move highlighting
 - [x] **ENG-06**: IRenderer interface abstracts rendering; game logic never imports renderer directly
@@ -133,7 +133,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | ENG-01 | Phase 1 | Complete |
 | ENG-02 | Phase 1 | Complete |
-| ENG-03 | Phase 1 | Pending |
+| ENG-03 | Phase 1 | Complete |
 | ENG-04 | Phase 1 | Pending |
 | ENG-05 | Phase 1 | Pending |
 | ENG-06 | Phase 1 | Complete |

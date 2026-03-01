@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T06:04:00Z"
+last_updated: "2026-03-01T06:06:09.804Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -76,6 +76,11 @@ Recent decisions affecting current work:
 - [Phase 01-04]: PieceFactory uses defId-N naming (tile-blue-0, tile-blue-1) — deterministic ids support reproducible tests and serialization
 - [Phase 01-04]: GameLoader does not load/execute hooks — hooks are the server's responsibility; loader is a pure synchronous data transform
 - [Phase 01-04]: RuntimeGameModel uses Map for O(1) zone/piece lookups and flat array for ordered piece iteration
+- [Phase 01-engine-foundation]: createGameFSM return type left inferred (not explicit AnyMachine) — typed context function incompatible with createMachine default generic; inferred type flows correctly to createActor
+- [Phase 01-engine-foundation]: Dual-path phase advancement: onDone for parallel auto-advance + PHASE_END event for sequential manual advance — both coexist on each phase state
+- [Phase 01-engine-foundation]: Removed rootDir from engine-core tsconfig — same fix as azul (01-02): cross-package path alias imports resolve outside rootDir boundary
+- [Phase 01-engine-foundation]: PixiAdapter uses @mszu/pixi-ssr-shim as first import for SvelteKit SSR safety
+- [Phase 01-engine-foundation]: pixi-viewport v6 requires events: app.renderer.events — all game objects in viewport for uniform zoom/pan
 
 ### Pending Todos
 

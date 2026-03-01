@@ -49,6 +49,8 @@ const BOARD_PADDING = 14;         // px — padding inside player board containe
 const SELECTION_GLOW = 0x4a90ff;   // blue — selected source tile
 const VALID_MOVE_GLOW = 0x22c55e;  // green — valid destination
 const ACTIVE_PLAYER_BORDER = 0x4a90ff; // blue border on active player's board
+const HOVER_SOURCE_GLOW = 0x8ab4f8;    // light blue — hover over source tile
+const HOVER_DEST_GLOW = 0x86efac;      // light green — hover over destination slot
 
 // ─── Azul wall color pattern ─────────────────────────────────────────────────
 // The Azul wall has a fixed color arrangement — each row shifts one position.
@@ -73,17 +75,19 @@ const COLOR_MAP: Record<string, string> = {
   red: '#E74C3C',
   black: '#2C3E50',
   teal: '#1ABC9C',
+  white: '#D4E4F7',
   'tile-blue': '#4A90D9',
   'tile-yellow': '#F5C542',
   'tile-red': '#E74C3C',
   'tile-black': '#2C3E50',
   'tile-teal': '#1ABC9C',
+  'tile-white': '#D4E4F7',
 };
 
 /** Map piece defId to short label. */
 const LABEL_MAP: Record<string, string> = {
-  blue: 'B', yellow: 'Y', red: 'R', black: 'K', teal: 'T',
-  'tile-blue': 'B', 'tile-yellow': 'Y', 'tile-red': 'R', 'tile-black': 'K', 'tile-teal': 'T',
+  blue: 'B', yellow: 'Y', red: 'R', black: 'K', teal: 'T', white: 'W',
+  'tile-blue': 'B', 'tile-yellow': 'Y', 'tile-red': 'R', 'tile-black': 'K', 'tile-teal': 'T', 'tile-white': 'W',
 };
 
 // ─── Sprite handle map ────────────────────────────────────────────────────────
@@ -111,6 +115,8 @@ export class AzulScene {
   private destinationHighlights: Set<string> = new Set();
   /** Sprites highlighted as selected source tiles (for clearing). */
   private sourceHighlights: Set<string> = new Set();
+  /** Sprites currently showing hover glow (tracked separately from selection). */
+  private hoverHighlights: Set<string> = new Set();
 
   /** Active player board border sprites (keyed by playerIndex). */
   private boardBorderHandles: Map<number, ISpriteHandle> = new Map();
@@ -156,6 +162,8 @@ export class AzulScene {
    */
   renderBoard(gameState?: GameState): void {
     const playerCount = gameState?.players.length ?? 2;
+    const zoneCount = gameState ? Object.keys(gameState.zones).length : this.model.zones.size;
+    console.log(`[AzulScene] renderBoard — players:${playerCount}, zones:${zoneCount}`);
 
     // Render factory/center area at the top
     this.renderFactoryArea(gameState);
@@ -347,8 +355,8 @@ export class AzulScene {
       const rightEdgeX = contentX + 5 * CELL - TILE_GAP;
       const lineY = contentY + row * CELL;
 
-      // Zone ID in server state: "player-{i+1}-pattern-line-{row+1}"
-      const serverZoneId = `player-${playerIndex + 1}-pattern-line-${row + 1}`;
+      // Zone ID in server state: "player-{i}-pattern-line-{row+1}"
+      const serverZoneId = `player-${playerIndex}-pattern-line-${row + 1}`;
       const localZoneId = `player-pattern-line-${row + 1}`;
 
       let pieces: Array<{ defId: string; id: string }> = [];
@@ -380,16 +388,33 @@ export class AzulScene {
           // Register as destination click target
           this.renderer.setInteractive(slotHandle, true);
           this.renderer.onPointerDown(slotHandle, () => {
+            console.log(`[AzulScene] destinationClick — zoneId:'${serverZoneId}'`);
             this.destinationClickCallback?.(serverZoneId);
           });
           this.destinationZoneIds.add(serverZoneId);
+
+          // Hover effects — subtle glow on hover, unless already highlighted as valid destination
+          this.renderer.onPointerOver(slotHandle, () => {
+            if (!this.destinationHighlights.has(key)) {
+              this.renderer.applyGlow(slotHandle, HOVER_DEST_GLOW, 1);
+              this.hoverHighlights.add(key);
+            }
+          });
+          this.renderer.onPointerOut(slotHandle, () => {
+            if (this.hoverHighlights.has(key)) {
+              this.hoverHighlights.delete(key);
+              if (!this.destinationHighlights.has(key)) {
+                this.renderer.removeGlow(slotHandle);
+              }
+            }
+          });
         }
       }
     }
 
     // Wall (right side of pattern lines) — 5x5 grid with Azul color pattern
     const wallX = contentX + 5 * CELL + 12;
-    const serverWallZoneId = `player-${playerIndex + 1}-wall`;
+    const serverWallZoneId = `player-${playerIndex}-wall`;
 
     // Get placed wall tiles from server state
     const wallPieces = gameState?.zones[serverWallZoneId]?.pieces ?? [];
@@ -419,7 +444,7 @@ export class AzulScene {
 
     // Floor line (bottom) — 7 slots
     const floorY = contentY + 5 * CELL + 8;
-    const serverFloorZoneId = `player-${playerIndex + 1}-floor-line`;
+    const serverFloorZoneId = `player-${playerIndex}-floor-line`;
     const localFloorZoneId = 'player-floor-line';
 
     let floorPieces: Array<{ defId: string; id: string }> = [];
@@ -448,9 +473,26 @@ export class AzulScene {
 
         this.renderer.setInteractive(slotHandle, true);
         this.renderer.onPointerDown(slotHandle, () => {
+          console.log(`[AzulScene] destinationClick — zoneId:'${serverFloorZoneId}'`);
           this.destinationClickCallback?.(serverFloorZoneId);
         });
         this.destinationZoneIds.add(serverFloorZoneId);
+
+        // Hover effects for floor line slots
+        this.renderer.onPointerOver(slotHandle, () => {
+          if (!this.destinationHighlights.has(key)) {
+            this.renderer.applyGlow(slotHandle, HOVER_DEST_GLOW, 1);
+            this.hoverHighlights.add(key);
+          }
+        });
+        this.renderer.onPointerOut(slotHandle, () => {
+          if (this.hoverHighlights.has(key)) {
+            this.hoverHighlights.delete(key);
+            if (!this.destinationHighlights.has(key)) {
+              this.renderer.removeGlow(slotHandle);
+            }
+          }
+        });
       }
     }
   }
@@ -462,6 +504,8 @@ export class AzulScene {
    * then highlight valid destination pattern lines with green glow.
    */
   selectSource(zoneId: string, color: string, validMoves: ValidMove[]): void {
+    const validTargets = new Set(validMoves.map(vm => vm.target).filter(Boolean));
+    console.log(`[AzulScene] selectSource — zoneId:'${zoneId}', color:'${color}', validMoves:${validMoves.length}, destinations:${validTargets.size}`);
     this.clearSelectionHighlights();
 
     // Highlight matching tiles in the source zone with blue glow
@@ -543,10 +587,11 @@ export class AzulScene {
       }
     }
 
-    // Animate all source tiles of this color
+    // Bring source tiles to front and animate them above board backgrounds
     const animations: Promise<void>[] = [];
     for (const [, info] of this.sprites) {
       if (info.zoneId === sourceZone && info.color === color) {
+        this.renderer.bringToFront(info.handle);
         animations.push(
           this.renderer.animateTo(info.handle, targetX, targetY, {
             duration: 350,
@@ -586,6 +631,22 @@ export class AzulScene {
     // Wire source click
     this.renderer.onPointerDown(handle, () => {
       this.sourceClickCallback?.(zoneId, defId);
+    });
+
+    // Hover effects — subtle glow on hover, unless already selected
+    this.renderer.onPointerOver(handle, () => {
+      if (!this.sourceHighlights.has(key)) {
+        this.renderer.applyGlow(handle, HOVER_SOURCE_GLOW, 1.5);
+        this.hoverHighlights.add(key);
+      }
+    });
+    this.renderer.onPointerOut(handle, () => {
+      if (this.hoverHighlights.has(key)) {
+        this.hoverHighlights.delete(key);
+        if (!this.sourceHighlights.has(key)) {
+          this.renderer.removeGlow(handle);
+        }
+      }
     });
   }
 
@@ -675,6 +736,7 @@ export class AzulScene {
     this.sprites.clear();
     this.sourceHighlights.clear();
     this.destinationHighlights.clear();
+    this.hoverHighlights.clear();
     this.destinationZoneIds.clear();
     this.boardBorderHandles.clear();
     this.spriteCounter = 0;

@@ -56,6 +56,8 @@ function nextId(): string {
 export class StubRenderer implements IRenderer {
   private _stage: ISceneHandle[] = [];
   private _pointerCallbacks: Map<string, () => void> = new Map();
+  private _pointerOverCallbacks: Map<string, () => void> = new Map();
+  private _pointerOutCallbacks: Map<string, () => void> = new Map();
   private _glowStates: Map<string, GlowState> = new Map();
   private _options: RendererOptions | null = null;
 
@@ -68,6 +70,8 @@ export class StubRenderer implements IRenderer {
   destroy(): void {
     this._stage = [];
     this._pointerCallbacks.clear();
+    this._pointerOverCallbacks.clear();
+    this._pointerOutCallbacks.clear();
     this._glowStates.clear();
     this._options = null;
   }
@@ -124,6 +128,16 @@ export class StubRenderer implements IRenderer {
     this._pointerCallbacks.set(id, cb);
   }
 
+  onPointerOver(handle: ISpriteHandle, cb: () => void): void {
+    const id = (handle as StubSpriteHandle).id;
+    this._pointerOverCallbacks.set(id, cb);
+  }
+
+  onPointerOut(handle: ISpriteHandle, cb: () => void): void {
+    const id = (handle as StubSpriteHandle).id;
+    this._pointerOutCallbacks.set(id, cb);
+  }
+
   // ── Effects ──
 
   applyGlow(handle: ISpriteHandle, color: number, strength: number): void {
@@ -143,6 +157,12 @@ export class StubRenderer implements IRenderer {
     _opts: AnimateOptions
   ): Promise<void> {
     // Resolves immediately — no actual animation in stub
+  }
+
+  // ── Z-ordering ──
+
+  bringToFront(_handle: ISceneHandle): void {
+    // no-op in stub
   }
 
   // ── Viewport ──
@@ -172,6 +192,28 @@ export class StubRenderer implements IRenderer {
    */
   triggerPointerDown(handleId: string): void {
     const cb = this._pointerCallbacks.get(handleId);
+    if (cb) {
+      cb();
+    }
+  }
+
+  /**
+   * Programmatically fires the pointer-over callback registered for a handle.
+   * Useful for simulating hover-in in tests.
+   */
+  triggerPointerOver(handleId: string): void {
+    const cb = this._pointerOverCallbacks.get(handleId);
+    if (cb) {
+      cb();
+    }
+  }
+
+  /**
+   * Programmatically fires the pointer-out callback registered for a handle.
+   * Useful for simulating hover-out in tests.
+   */
+  triggerPointerOut(handleId: string): void {
+    const cb = this._pointerOutCallbacks.get(handleId);
     if (cb) {
       cb();
     }

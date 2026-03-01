@@ -173,6 +173,11 @@
 			const sessionId = data.id !== 'test' ? data.id : undefined;
 			await sceneManager.init(sessionId);
 
+			// Expose SceneManager on window for puppeteer / dev access
+			if (typeof window !== 'undefined') {
+				(window as any).__sm = sceneManager;
+			}
+
 			loading = false;
 			gameState = { ...sceneManager.state };
 

@@ -288,9 +288,11 @@ public class HookExecutor
         //      Also handles default values: (param: Type = default) -> (param = default)
         //      CRITICAL: Only match types that start with uppercase (PascalCase types), known primitives,
         //      or typeof expressions. This prevents stripping object literal properties like source: sourceId.
+        //      Also excludes SCREAMING_SNAKE_CASE constants (e.g. FIRST_PLAYER_TOKEN) which start uppercase
+        //      but are values not types — matched by requiring the name NOT be all-uppercase-and-underscores.
         //      Primitives can have array suffixes (boolean[][], string[], etc.)
         //      Lookahead uses \s* to handle trailing whitespace/newline before , ) = in multiline signatures.
-        js = Regex.Replace(js, @"(\w+)\??\s*:\s*(?:(?:number|string|boolean|void|never|null|undefined|any)(?:\[\])*|typeof\s+\w+(?:\.\w+)*|[A-Z][A-Za-z0-9_$<>\[\]|& \t\.']*)\s*(?=\s*[,)=])", "$1");
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*(?:(?:number|string|boolean|void|never|null|undefined|any)(?:\[\])*|typeof\s+\w+(?:\.\w+)*|[A-Z](?![A-Z_]*\s*[,)=])[A-Za-z0-9_$<>\[\]|& \t\.']*)\s*(?=\s*[,)=])", "$1");
 
         // 13. Remove "export const name: Type = " -> "var name = "
         js = Regex.Replace(js, @"export const (\w+)\s*(?::\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]|&\s,\.]*\s*)?=\s*", "var $1 = ");

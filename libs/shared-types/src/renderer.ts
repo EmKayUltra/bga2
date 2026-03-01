@@ -104,6 +104,12 @@ export interface IRenderer {
   /** Register a callback for pointer-down events on a sprite. */
   onPointerDown(handle: ISpriteHandle, cb: () => void): void;
 
+  /** Register a callback for pointer-over (hover enter) events on a sprite. */
+  onPointerOver(handle: ISpriteHandle, cb: () => void): void;
+
+  /** Register a callback for pointer-out (hover leave) events on a sprite. */
+  onPointerOut(handle: ISpriteHandle, cb: () => void): void;
+
   // ── Effects ──
 
   /** Apply a colored glow filter to a sprite (used for selection / valid-move highlights). */
@@ -117,6 +123,11 @@ export interface IRenderer {
    * Resolves when the animation completes.
    */
   animateTo(handle: ISpriteHandle, x: number, y: number, opts: AnimateOptions): Promise<void>;
+
+  /**
+   * Move a scene object to the front of the render order (renders on top of siblings).
+   */
+  bringToFront(handle: ISceneHandle): void;
 
   // ── Viewport ──
 

@@ -53,8 +53,8 @@ const COLORS = {
   factoryStroke:  0xa08060,   // darker tan stroke
   zoneBg:        0xf0ebe3,   // light warm board background
   zoneStroke:    0xd0c4b4,   // warm border
-  slotFill:      0xf0ebe3,   // empty slot fill (light, contrasts against tan factory bg)
-  slotStroke:    0xc8bdb0,   // empty slot border
+  slotFill:      0xe4ddd3,   // empty slot fill (slightly darker than board bg for visibility)
+  slotStroke:    0xb8ada0,   // empty slot border (stronger contrast)
   centerBg:      0xe8e0d4,   // center area (slightly darker than zone)
   centerStroke:  0xc8bca8,
 };
@@ -195,12 +195,12 @@ export class PixiAdapter implements IRenderer {
       g.roundRect(0, 0, w, h, 4).fill({ color: ghostFill });
       g.stroke({ color: ghostStroke, width: 1.5 });
     } else if (textureId.startsWith('slot:')) {
-      // Empty slot with clear border
+      // Empty slot with clear border (visible against board background)
       const parts = textureId.split(':');
       const w = parseFloat(parts[3] ?? '48');
       const h = parseFloat(parts[4] ?? '48');
       g.roundRect(0, 0, w, h, 4).fill({ color: COLORS.slotFill });
-      g.stroke({ color: COLORS.slotStroke, width: 1.5 });
+      g.stroke({ color: COLORS.slotStroke, width: 2 });
     } else {
       g.rect(0, 0, 48, 48).fill({ color: 0xcccccc });
     }
@@ -264,6 +264,7 @@ export class PixiAdapter implements IRenderer {
     const obj = this._handles.get(id);
     if (obj) {
       obj.eventMode = enabled ? 'static' : 'none';
+      obj.cursor = enabled ? 'pointer' : 'default';
     }
   }
 
@@ -272,6 +273,22 @@ export class PixiAdapter implements IRenderer {
     const obj = this._handles.get(id);
     if (obj) {
       obj.on('pointerdown', cb);
+    }
+  }
+
+  onPointerOver(handle: ISpriteHandle, cb: () => void): void {
+    const id = (handle as PixiSpriteHandle).id;
+    const obj = this._handles.get(id);
+    if (obj) {
+      obj.on('pointerover', cb);
+    }
+  }
+
+  onPointerOut(handle: ISpriteHandle, cb: () => void): void {
+    const id = (handle as PixiSpriteHandle).id;
+    const obj = this._handles.get(id);
+    if (obj) {
+      obj.on('pointerout', cb);
     }
   }
 
@@ -341,6 +358,18 @@ export class PixiAdapter implements IRenderer {
 
       requestAnimationFrame(tick);
     });
+  }
+
+  // ── Z-ordering ──
+
+  bringToFront(handle: ISceneHandle): void {
+    const id = (handle as PixiSpriteHandle | PixiContainerHandle).id;
+    const obj = this._handles.get(id);
+    if (obj && obj.parent) {
+      const parent = obj.parent;
+      parent.removeChild(obj);
+      parent.addChild(obj);
+    }
   }
 
   // ── Viewport ──

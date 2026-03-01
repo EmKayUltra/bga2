@@ -106,6 +106,7 @@ async function parseErrorResponse(res: Response): Promise<MoveResponse> {
  * @returns The new session ID, gameId, and version
  */
 export async function createGame(gameId: string, playerNames: string[]): Promise<CreateGameResponse> {
+  console.log(`[gameApi] POST /games → {gameId:'${gameId}', players:${playerNames.length}}`);
   const res = await fetch(`${API_BASE}/games`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -114,10 +115,13 @@ export async function createGame(gameId: string, playerNames: string[]): Promise
 
   if (!res.ok) {
     const err = await parseErrorResponse(res);
+    console.log(`[gameApi] POST /games ← error: ${err.errors?.join(', ')}`);
     throw new Error(err.errors?.join(', ') ?? 'Failed to create game');
   }
 
-  return res.json() as Promise<CreateGameResponse>;
+  const data = await res.json() as CreateGameResponse;
+  console.log(`[gameApi] POST /games ← sessionId:${data.sessionId}`);
+  return data;
 }
 
 /**
@@ -127,20 +131,24 @@ export async function createGame(gameId: string, playerNames: string[]): Promise
  * @returns Current GameState and valid moves for client-side highlighting
  */
 export async function getGameState(sessionId: string): Promise<GameStateResponse> {
+  console.log(`[gameApi] GET /games/${sessionId}/state`);
   const res = await fetch(`${API_BASE}/games/${encodeURIComponent(sessionId)}/state`, {
     method: 'GET',
     headers: { 'Accept': 'application/json' },
   });
 
   if (!res.ok) {
+    console.log(`[gameApi] GET /games/${sessionId}/state ← error: HTTP ${res.status}`);
     throw new Error(`Failed to get game state: HTTP ${res.status}`);
   }
 
   const raw = await res.json();
-  return {
+  const result = {
     state: typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state,
     validMoves: raw.validMoves ?? [],
   };
+  console.log(`[gameApi] GET /games/${sessionId}/state ← validMoves:${result.validMoves.length}, player:${result.state.currentPlayerIndex}, phase:${result.state.phase}`);
+  return result;
 }
 
 /**
@@ -153,6 +161,7 @@ export async function getGameState(sessionId: string): Promise<GameStateResponse
  * @param move - The move to submit
  */
 export async function submitMove(sessionId: string, move: Move): Promise<MoveResult> {
+  console.log(`[gameApi] POST /move → {action:'${move.action}', source:'${move.source}', target:'${move.target}', pieceId:'${move.pieceId}'}`);
   let res: Response;
 
   try {
@@ -162,24 +171,29 @@ export async function submitMove(sessionId: string, move: Move): Promise<MoveRes
       body: JSON.stringify(move),
     });
   } catch (err) {
-    // Network error (server unreachable, CORS failure, etc.)
+    const errMsg = err instanceof Error ? err.message : 'Network error';
+    console.log(`[gameApi] POST /move ← network error: ${errMsg}`);
     return {
       valid: false,
-      errors: [err instanceof Error ? err.message : 'Network error'],
+      errors: [errMsg],
     };
   }
 
   if (!res.ok) {
-    return parseErrorResponse(res);
+    const result = await parseErrorResponse(res);
+    console.log(`[gameApi] POST /move ← error: ${result.errors?.join(', ')}`);
+    return result;
   }
 
   // Server sends { valid, state (string), validMoves, errors }
   // Client MoveResult expects { valid, newState (object), validMoves, errors }
   const raw = await res.json();
-  return {
+  const result = {
     valid: raw.valid,
     newState: raw.state ? (typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state) : undefined,
     validMoves: raw.validMoves ?? undefined,
     errors: raw.errors ?? undefined,
   };
+  console.log(`[gameApi] POST /move ← valid:${result.valid}, nextMoves:${result.validMoves?.length ?? 0}${result.errors ? ', errors:' + result.errors.join(', ') : ''}`);
+  return result;
 }

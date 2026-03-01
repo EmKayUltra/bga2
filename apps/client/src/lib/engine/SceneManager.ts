@@ -220,6 +220,7 @@ export class SceneManager {
     // Wire click handlers
     this.wireClickHandlers();
 
+    console.log(`[SceneManager] init complete — sessionId:${this.state.sessionId}, players:${this.state.playerNames.length}, validMoves:${this.state.validMoves.length}`);
     this.onStateChange?.();
   }
 
@@ -273,6 +274,11 @@ export class SceneManager {
   handleSourceClick(zoneId: string, color: string): void {
     if (!this.scene) return;
 
+    const relevantMoves = this.currentValidMoves.filter(
+      (vm) => vm.source === zoneId && (vm.pieceId === color || !vm.pieceId)
+    );
+    console.log(`[SceneManager] handleSourceClick — zoneId:'${zoneId}', color:'${color}', relevantMoves:${relevantMoves.length}`);
+
     // If same source+color already selected, deselect
     if (this.state.selectedSource === zoneId && this.state.selectedColor === color) {
       this.scene.deselectSource();
@@ -286,11 +292,6 @@ export class SceneManager {
     this.state.selectedSource = zoneId;
     this.state.selectedColor = color;
 
-    // Filter valid moves to those matching this source + color
-    const relevantMoves = this.currentValidMoves.filter(
-      (vm) => vm.source === zoneId && (vm.pieceId === color || !vm.pieceId)
-    );
-
     this.scene.selectSource(zoneId, color, relevantMoves);
     this.onStateChange?.();
   }
@@ -301,17 +302,18 @@ export class SceneManager {
    */
   handleDestinationClick(targetZoneId: string): void {
     if (!this.scene || !this.state.selectedSource || !this.state.selectedColor) {
+      console.log(`[SceneManager] handleDestinationClick — ignored (no source selected), target:'${targetZoneId}'`);
       return;
     }
 
     // Determine patternLineRow from the targetZoneId
-    // Convention: "player-{i}-pattern-line-{row}" → row 1-5, or "player-{i}-floor-line" → 0
-    let patternLineRow = 0;
+    // Convention: "player-{i}-pattern-line-{capacity}" → 0-based row index, "player-{i}-floor-line" → -1
+    let patternLineRow = -1; // -1 = floor line
     const patternMatch = targetZoneId.match(/pattern-line-(\d+)$/);
     if (patternMatch) {
-      patternLineRow = parseInt(patternMatch[1], 10);
+      // Zone ID uses capacity (1-5), onMove hook expects 0-based row index (0-4)
+      patternLineRow = parseInt(patternMatch[1], 10) - 1;
     }
-    // floor-line remains 0
 
     // Validate this is a legal destination
     const isLegal = this.currentValidMoves.some((vm) => {
@@ -324,9 +326,10 @@ export class SceneManager {
       return false;
     });
 
+    console.log(`[SceneManager] handleDestinationClick — target:'${targetZoneId}', patternLineRow:${patternLineRow}, isLegal:${isLegal}, selectedSource:'${this.state.selectedSource}', selectedColor:'${this.state.selectedColor}'`);
+
     if (!isLegal && this.currentValidMoves.length > 0) {
-      // Not a legal destination — ignore (or deselect)
-      console.info('[SceneManager] Destination not legal:', targetZoneId);
+      console.log(`[SceneManager] handleDestinationClick — rejected (not a legal destination)`);
       return;
     }
 
@@ -353,18 +356,21 @@ export class SceneManager {
     if (!this.scene || !this.state.sessionId) return;
 
     const playerIndex = this.state.currentPlayerIndex;
-    const playerId = `player-${playerIndex + 1}`;
+    const playerId = `player-${playerIndex}`;
 
     const move = {
       playerId,
       action: 'pick-tiles',
       source: sourceZone,
       target: targetZoneId,
+      pieceId: color,
       data: {
         color,
         patternLineRow,
       },
     };
+
+    console.log(`[SceneManager] submitPlayerMove — ${JSON.stringify(move)}`);
 
     // Deselect optimistically while waiting for server
     this.scene.deselectSource();
@@ -392,6 +398,7 @@ export class SceneManager {
     targetZoneId: string
   ): Promise<void> {
     this.state.lastMoveResult = result;
+    console.log(`[SceneManager] handleMoveResult — valid:${result.valid}${result.errors ? ', errors:' + result.errors.join(', ') : ''}`);
 
     if (result.valid) {
       // Animate tiles from source to destination
@@ -428,6 +435,8 @@ export class SceneManager {
             this.scene.updateFromState(newGs);
             this.scene.setActivePlayer(newGs.currentPlayerIndex);
           }
+
+          console.log(`[SceneManager] handleMoveResult — newPlayer:${newGs.currentPlayerIndex} ('${this.state.playerNames[newGs.currentPlayerIndex]}'), validMoves:${this.state.validMoves.length}, round:${newGs.round}`);
 
           // Fire turn change callback if player changed
           if (newGs.currentPlayerIndex !== prevPlayerIndex) {

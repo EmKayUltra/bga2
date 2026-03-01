@@ -13,4 +13,5 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 WORKDIR /app
 RUN npm init -y && npm install puppeteer-core@24
 COPY test-ui.mjs .
-ENTRYPOINT ["node", "test-ui.mjs"]
+COPY test-game.mjs .
+CMD ["node", "test-ui.mjs"]

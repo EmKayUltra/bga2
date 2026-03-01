@@ -18,11 +18,16 @@
     "docker:build": "docker compose -f apps/infra/docker-compose.yml build"
   },
   "devDependencies": {
-    "nx": "^19.0.0",
-    "@nx/vite": "^19.0.0",
     "@nx/js": "^19.0.0",
+    "@nx/vite": "^19.0.0",
     "@nx/workspace": "^19.0.0",
+    "nx": "^19.0.0",
     "typescript": "^5.4.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@mszu/pixi-ssr-shim": "^1.0.2",
+    "pixi-filters": "^6.1.5",
+    "pixi-viewport": "^6.0.3",
+    "pixi.js": "^8.16.0"
+  }
 }

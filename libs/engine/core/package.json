@@ -13,6 +13,10 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "xstate": "^5.28.0"
+    "xstate": "^5.28.0",
+    "pixi.js": "^8.16.0",
+    "pixi-filters": "^6.1.5",
+    "pixi-viewport": "^6.0.3",
+    "@mszu/pixi-ssr-shim": "*"
   }
 }

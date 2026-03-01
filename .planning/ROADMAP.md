@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Zoom with pinch (mobile) and scroll-wheel (desktop) works; drag-to-pan works; all interactive elements meet the 44px touch target minimum
   5. The server validates a move against a hook function and returns a validMoves[] array — the client highlights legal moves without re-implementing any rule logic
   6. `docker compose up` starts the full local development stack (frontend, API, local PostgreSQL) — no local tool installs required beyond Docker
-**Plans:** 7/7 auto-tasks executed (01-07 awaiting checkpoint:human-verify)
+**Plans:** 7/7 complete
 
 Plans:
 - [x] 01-01-PLAN.md -- NX monorepo scaffold + Docker Compose dev environment
@@ -41,7 +41,7 @@ Plans:
 - [x] 01-04-PLAN.md -- Game loader + zone/piece primitives
 - [x] 01-05-PLAN.md -- PixiJS renderer adapter + viewport + touch targets
 - [x] 01-06-PLAN.md -- C# API server + server-side move validation via Jint
-- [ ] 01-07-PLAN.md -- Azul scene integration + end-to-end wiring + visual polish (checkpoint pending)
+- [x] 01-07-PLAN.md -- Azul scene integration + end-to-end wiring + visual polish
 
 ### Phase 2: Azul + First Playable
 **Goal**: A complete game of Azul can be played locally (single browser, hot-seat style) with all rules enforced by the server, state persisted to PostgreSQL, and a working SvelteKit UI — the engine is proven by a real game

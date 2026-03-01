@@ -70,11 +70,11 @@ completed: 2026-03-01
 
 ## Performance
 
-- **Duration:** ~8 min
+- **Duration:** ~30 min (8 min auto tasks + visual verification iteration)
 - **Started:** 2026-03-01T06:10:42Z
-- **Completed:** 2026-03-01T06:18:15Z
-- **Tasks:** 2 auto-complete + 1 checkpoint:human-verify (pending)
-- **Files created/modified:** 7
+- **Completed:** 2026-03-01
+- **Tasks:** 3 of 3 (2 auto + 1 visual verification checkpoint)
+- **Files created/modified:** 12
 
 ## Accomplishments
 
@@ -94,9 +94,9 @@ completed: 2026-03-01
 
 ## Task Commits
 
-1. **Task 1: Build SceneManager, AzulScene, and game API client** - `273cccc` (feat)
-2. **Task 2: Mount game page in SvelteKit and wire end-to-end flow** - `e30ccfc` (feat)
-3. **Task 3: Checkpoint — pending human verification**
+1. **Task 1: Build SceneManager, AzulScene, and game API client** — `273cccc` (feat)
+2. **Task 2: Mount game page in SvelteKit and wire end-to-end flow** — `e30ccfc` (feat)
+3. **Task 3: Visual verification checkpoint** — `79080c1` (fix: setPosition, layout, Puppeteer harness), `e64ae08` (feat: wall colors, warm palette, body reset)
 
 ## Files Created/Modified
 
@@ -152,11 +152,16 @@ completed: 2026-03-01
 **Total deviations:** 4 auto-fixed (2 Rule 1 - Bug, 1 Rule 3 - Blocking, 1 Rule 1 - Bug)
 **Impact on plan:** All fixes are essential for compilation. Core architecture implemented exactly as specified.
 
-## Checkpoint Status
+## Checkpoint Status: PASSED
 
-Task 3 is a `type="checkpoint:human-verify"` gate. All automated work is complete.
-
-**Human verification required:** Navigate to `http://localhost:5173/game/test` after `docker compose -f apps/infra/docker-compose.yml up` and verify the Azul board renders with visual elements, interactions, and server health check.
+Task 3 visual verification completed via Puppeteer screenshot harness. Rendering fixes applied:
+- Added setPosition() to IRenderer (sprites were at 0,0)
+- Azul wall ghost color pattern (5-color rotating grid)
+- Warm tan factory circles, light board backgrounds
+- Factory radius 68px to contain 2x2 tile grid
+- Player boards stacked vertically, world 640x1200
+- Body margin reset, container height accounts for dev toolbar
+- Both player boards fully visible with floor lines
 
 ## Self-Check: PASSED
 

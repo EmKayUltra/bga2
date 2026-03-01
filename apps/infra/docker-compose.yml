@@ -1,0 +1,103 @@
+services:
+
+  # ─── SvelteKit Frontend ───────────────────────────────────────────────────
+  client:
+    build:
+      context: ../..  # workspace root — Dockerfile can COPY from any workspace path
+      dockerfile: apps/client/Dockerfile
+      target: dev
+    ports:
+      - "5173:5173"   # SvelteKit dev server
+      - "24678:24678" # Vite HMR websocket
+    volumes:
+      # Hot-reload: mount source directly into container
+      - ../../apps/client:/app/apps/client
+      - ../../libs:/app/libs
+      # Prevent host node_modules from shadowing container's
+      - /app/node_modules
+      - /app/apps/client/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_URL: "http://localhost:8080"
+    depends_on:
+      - server
+    networks:
+      - bga2
+
+  # ─── C# API Server ────────────────────────────────────────────────────────
+  server:
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+      target: dev
+    ports:
+      - "8080:8080"
+    volumes:
+      # Hot-reload: mount server source
+      - ../../apps/server:/app/apps/server
+      # Persist NuGet packages across rebuilds
+      - server_nuget:/root/.nuget
+    environment:
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://0.0.0.0:8080"
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=bga2;Username=bga2;Password=secret"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - bga2
+
+  # ─── PostgreSQL Database ──────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: bga2
+      POSTGRES_USER: bga2
+      POSTGRES_PASSWORD: secret
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bga2 -d bga2"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - bga2
+
+  # ─── LocalStack (AWS emulation) ───────────────────────────────────────────
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"  # LocalStack gateway (all services on one port)
+    environment:
+      SERVICES: s3,ses,sqs
+      DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      EDGE_PORT: 4566
+      DEBUG: "0"
+      # LocalStack Pro features (not needed for Phase 1 OSS services)
+      # LOCALSTACK_API_KEY: ${LOCALSTACK_API_KEY:-}
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - bga2
+
+# ─── Volumes ──────────────────────────────────────────────────────────────
+volumes:
+  pgdata:
+    driver: local
+  localstack_data:
+    driver: local
+  server_nuget:
+    driver: local
+
+# ─── Networks ─────────────────────────────────────────────────────────────
+networks:
+  bga2:
+    driver: bridge

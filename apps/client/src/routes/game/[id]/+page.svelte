@@ -67,8 +67,8 @@
 			if (data.id === 'test') {
 				try {
 					const { createGame } = await import('$lib/api/gameApi.js');
-					const response = await createGame('azul');
-					sceneManager.state.sessionId = response.id;
+					const response = await createGame('azul', ['Player 1', 'Player 2']);
+					sceneManager.state.sessionId = response.sessionId;
 					await sceneManager.refreshValidMoves();
 				} catch {
 					// Server might not be running — that's OK for Phase 1 demo

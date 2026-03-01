@@ -16,10 +16,51 @@ import type { Move, ValidMove, MoveResult, GameState } from '@bga2/shared-types'
 
 const API_BASE = 'http://localhost:8080';
 
+// ─── localStorage schema ──────────────────────────────────────────────────────
+
+export interface RecentGame {
+  sessionId: string;
+  createdAt: string;  // ISO date
+  gameId: string;
+  playerNames: string[];
+}
+
+const RECENT_GAMES_KEY = 'bga2-recent-games';
+
+export function saveRecentGame(game: RecentGame): void {
+  let games: RecentGame[] = [];
+  try {
+    const raw = localStorage.getItem(RECENT_GAMES_KEY);
+    if (raw) games = JSON.parse(raw) as RecentGame[];
+  } catch {
+    // corrupt storage — start fresh
+  }
+  // Prepend new game, limit to 20 entries
+  games = [game, ...games.filter(g => g.sessionId !== game.sessionId)].slice(0, 20);
+  localStorage.setItem(RECENT_GAMES_KEY, JSON.stringify(games));
+}
+
+export function loadRecentGames(): RecentGame[] {
+  try {
+    const raw = localStorage.getItem(RECENT_GAMES_KEY);
+    if (raw) return JSON.parse(raw) as RecentGame[];
+  } catch {
+    // corrupt storage
+  }
+  return [];
+}
+
+export function removeRecentGame(sessionId: string): void {
+  const games = loadRecentGames().filter(g => g.sessionId !== sessionId);
+  localStorage.setItem(RECENT_GAMES_KEY, JSON.stringify(games));
+}
+
 // ─── Response types ───────────────────────────────────────────────────────────
 
 export interface CreateGameResponse {
-  id: string;
+  sessionId: string;
+  gameId: string;
+  version: number;
 }
 
 export interface GameStateResponse {
@@ -61,13 +102,14 @@ async function parseErrorResponse(res: Response): Promise<MoveResponse> {
  * Create a new game session on the server.
  *
  * @param gameId - The game definition ID (e.g. 'azul')
- * @returns The new session ID
+ * @param playerNames - Array of 2-4 player names
+ * @returns The new session ID, gameId, and version
  */
-export async function createGame(gameId: string): Promise<CreateGameResponse> {
+export async function createGame(gameId: string, playerNames: string[]): Promise<CreateGameResponse> {
   const res = await fetch(`${API_BASE}/games`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gameId }),
+    body: JSON.stringify({ gameId, playerNames }),
   });
 
   if (!res.ok) {

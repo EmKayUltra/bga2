@@ -25,6 +25,7 @@ services:
       VITE_APPSYNC_HTTP_ENDPOINT: "${APPSYNC_HTTP_ENDPOINT:-http://localhost:4006}"
       VITE_APPSYNC_API_KEY: "${APPSYNC_API_KEY:-mock-api-key}"
       VITE_VAPID_PUBLIC_KEY: "${VAPID_PUBLIC_KEY:-}"
+      API_SERVER_URL: "http://server:8080"
     depends_on:
       - server
       - appsync-mock
@@ -89,25 +90,6 @@ services:
     networks:
       - bga2
 
-  # ─── LocalStack (AWS emulation) ───────────────────────────────────────────
-  localstack:
-    image: localstack/localstack:latest
-    ports:
-      - "4566:4566"  # LocalStack gateway (all services on one port)
-    environment:
-      SERVICES: s3,ses,sqs
-      DEFAULT_REGION: us-east-1
-      AWS_DEFAULT_REGION: us-east-1
-      EDGE_PORT: 4566
-      DEBUG: "0"
-      # LocalStack Pro features (not needed for Phase 1 OSS services)
-      # LOCALSTACK_API_KEY: ${LOCALSTACK_API_KEY:-}
-    volumes:
-      - localstack_data:/var/lib/localstack
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - bga2
-
   # ─── AppSync Events Mock ──────────────────────────────────────────────────
   appsync-mock:
     build:
@@ -121,8 +103,6 @@ services:
 # ─── Volumes ──────────────────────────────────────────────────────────────
 volumes:
   pgdata:
-    driver: local
-  localstack_data:
     driver: local
   server_nuget:
     driver: local

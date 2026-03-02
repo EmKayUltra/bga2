@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
 	import { authClient } from '$lib/auth-client';
 	import { pwaInfo } from 'virtual:pwa-info';
+	import { getMyGames } from '$lib/api/lobbyApi.js';
 
 	let { children } = $props();
 
@@ -10,6 +12,32 @@
 	// PWA web manifest link tag — injected by @vite-pwa/sveltekit
 	// undefined in dev when devOptions.enabled is false
 	let webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
+
+	// In-app badge: count of async games where it's the player's turn
+	let myTurnCount = $state(0);
+	let badgePollInterval: ReturnType<typeof setInterval> | null = null;
+
+	async function fetchBadgeCount() {
+		if (!$session?.data?.user) {
+			myTurnCount = 0;
+			return;
+		}
+		try {
+			const games = await getMyGames();
+			myTurnCount = games.filter(g => g.isMyTurn).length;
+		} catch {
+			// Silent fail
+		}
+	}
+
+	onMount(() => {
+		fetchBadgeCount();
+		badgePollInterval = setInterval(fetchBadgeCount, 60000);
+	});
+
+	onDestroy(() => {
+		if (badgePollInterval) clearInterval(badgePollInterval);
+	});
 
 	async function handleSignOut() {
 		await authClient.signOut();
@@ -29,10 +57,17 @@
 		<div class="nav-actions">
 			{#if $session?.data?.user}
 				{@const username = ($session.data.user as { username?: string }).username ?? $session.data.user.name}
+				<a href="/lobby" class="nav-link nav-link--lobby">
+					Lobby
+					{#if myTurnCount > 0}
+						<span class="nav-badge" aria-label="{myTurnCount} games need your attention">{myTurnCount}</span>
+					{/if}
+				</a>
 				<a href="/profile/{username}" class="nav-link nav-link--user">{username}</a>
 				<a href="/settings" class="nav-link">Settings</a>
 				<button class="nav-button" onclick={handleSignOut}>Sign out</button>
 			{:else}
+				<a href="/lobby" class="nav-link">Lobby</a>
 				<a href="/auth/login" class="nav-link">Sign in</a>
 				<a href="/auth/register" class="nav-link nav-link--primary">Register</a>
 			{/if}
@@ -127,5 +162,27 @@
 	.nav-link--primary:hover {
 		background: #1d4ed8;
 		color: #ffffff;
+	}
+
+	.nav-link--lobby {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.nav-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+		background: #ef4444;
+		color: #ffffff;
+		font-size: 0.6875rem;
+		font-weight: 700;
+		border-radius: 9px;
+		line-height: 1;
 	}
 </style>

@@ -6,8 +6,10 @@
 		listTables,
 		createTable,
 		quickPlay,
+		getMyGames,
 		type TableListItem,
 		type CreateTableRequest,
+		type MyGameItem,
 	} from '$lib/api/lobbyApi.js';
 
 	// ── Session ──────────────────────────────────────────────────────────────
@@ -18,6 +20,13 @@
 	let tables = $state<TableListItem[]>([]);
 	let loadError = $state<string | null>(null);
 	let isLoading = $state(true);
+
+	// Filter toggle: 'all' | 'realtime' | 'async'
+	let tableFilter = $state<'all' | 'realtime' | 'async'>('all');
+
+	// My Games section for active async games
+	let myGames = $state<MyGameItem[]>([]);
+	let myGamesPollInterval: ReturnType<typeof setInterval> | null = null;
 
 	// Create dialog state
 	let showCreate = $state(false);
@@ -36,6 +45,16 @@
 	let quickPlayLoading = $state(false);
 	let quickPlayError = $state<string | null>(null);
 
+	// ── Derived: filtered table list ─────────────────────────────────────────
+
+	let filteredTables = $derived(
+		tableFilter === 'all'
+			? tables
+			: tableFilter === 'async'
+				? tables.filter(t => t.isAsync)
+				: tables.filter(t => !t.isAsync)
+	);
+
 	// ── Polling ──────────────────────────────────────────────────────────────
 
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -51,13 +70,28 @@
 		}
 	}
 
+	async function fetchMyGames() {
+		try {
+			myGames = await getMyGames();
+		} catch {
+			// Silent fail — my games is non-critical
+		}
+	}
+
 	onMount(() => {
 		fetchTables();
 		pollInterval = setInterval(fetchTables, 5000);
+
+		// Poll My Games if authenticated
+		if ($session?.data?.user) {
+			fetchMyGames();
+			myGamesPollInterval = setInterval(fetchMyGames, 30000);
+		}
 	});
 
 	onDestroy(() => {
 		if (pollInterval) clearInterval(pollInterval);
+		if (myGamesPollInterval) clearInterval(myGamesPollInterval);
 	});
 
 	// ── Handlers ─────────────────────────────────────────────────────────────
@@ -110,6 +144,19 @@
 		if (mins < 60) return `${mins}m ago`;
 		return `${Math.floor(mins / 60)}h ago`;
 	}
+
+	function formatTimeRemaining(deadline: string | null): string {
+		if (!deadline) return '';
+		const ms = new Date(deadline).getTime() - Date.now();
+		if (ms <= 0) return 'Expired';
+		const totalSecs = Math.floor(ms / 1000);
+		const days = Math.floor(totalSecs / 86400);
+		const hours = Math.floor((totalSecs % 86400) / 3600);
+		const mins = Math.floor((totalSecs % 3600) / 60);
+		if (days > 0) return `${days}d ${hours}h`;
+		if (hours > 0) return `${hours}h ${mins}m`;
+		return `${mins}m`;
+	}
 </script>
 
 <main class="lobby">
@@ -150,17 +197,79 @@
 		{/if}
 	{/if}
 
+	<!-- My Games section — visible when authenticated and has active async games -->
+	{#if $session?.data?.user && myGames.length > 0}
+	<section class="my-games-section">
+		<h2 class="section-title">My Games</h2>
+		<ul class="my-games-list" role="list">
+			{#each myGames as game (game.tableId)}
+				<li class="my-game-card">
+					<div class="my-game-info">
+						<span class="my-game-name">{game.displayName}</span>
+						<span class="my-game-meta">
+							{#if game.opponents.length > 0}
+								vs {game.opponents.join(', ')}
+							{/if}
+							&bull;
+							<span class="timer-mode-badge">{game.timerMode}</span>
+						</span>
+					</div>
+					<div class="my-game-right">
+						{#if game.isPaused}
+							<span class="status-badge badge-paused">Paused</span>
+						{:else if game.isMyTurn}
+							<div class="turn-info">
+								<span class="status-badge badge-your-turn">Your Turn</span>
+								{#if game.turnDeadline}
+									<span class="time-remaining">{formatTimeRemaining(game.turnDeadline)}</span>
+								{/if}
+							</div>
+						{:else}
+							<div class="turn-info">
+								<span class="status-badge badge-waiting">Waiting</span>
+								{#if game.turnDeadline}
+									<span class="time-remaining time-remaining--muted">{formatTimeRemaining(game.turnDeadline)}</span>
+								{/if}
+							</div>
+						{/if}
+						<a href="/game/{game.sessionId}" class="btn btn-sm btn-join">Play</a>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	</section>
+	{/if}
+
 	<!-- Table list -->
 	<section class="table-list-section">
-		<h2 class="section-title">Open Tables</h2>
+		<div class="table-list-header">
+			<h2 class="section-title">Open Tables</h2>
+			<div class="filter-toggle" role="group" aria-label="Filter tables by mode">
+				<button
+					class="filter-btn"
+					class:filter-btn-active={tableFilter === 'all'}
+					onclick={() => (tableFilter = 'all')}
+				>All</button>
+				<button
+					class="filter-btn"
+					class:filter-btn-active={tableFilter === 'realtime'}
+					onclick={() => (tableFilter = 'realtime')}
+				>Real-time</button>
+				<button
+					class="filter-btn"
+					class:filter-btn-active={tableFilter === 'async'}
+					onclick={() => (tableFilter = 'async')}
+				>Async</button>
+			</div>
+		</div>
 
 		{#if isLoading}
 			<div class="loading-state">Loading tables...</div>
 		{:else if loadError}
 			<p class="error-message">{loadError}</p>
-		{:else if tables.length === 0}
+		{:else if filteredTables.length === 0}
 			<div class="empty-state">
-				<p>No open tables right now.</p>
+				<p>No {tableFilter !== 'all' ? tableFilter + ' ' : ''}tables right now.</p>
 				{#if $session?.data?.user}
 					<p>Be the first — create a table or use Quick Play!</p>
 				{:else}
@@ -169,7 +278,7 @@
 			</div>
 		{:else}
 			<ul class="table-list" role="list">
-				{#each tables as table (table.id)}
+				{#each filteredTables as table (table.id)}
 					<li class="table-card">
 						<div class="table-info">
 							<span class="table-name">
@@ -503,6 +612,158 @@
 
 	.btn-join:hover {
 		background: #1d4ed8;
+	}
+
+	/* ── My Games section ── */
+
+	.my-games-section {
+		background: #ffffff;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	}
+
+	.my-games-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.my-game-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.75rem 1rem;
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		border-radius: 8px;
+		flex-wrap: wrap;
+	}
+
+	.my-game-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.my-game-name {
+		font-weight: 600;
+		color: #1e293b;
+		font-size: 0.9375rem;
+	}
+
+	.my-game-meta {
+		font-size: 0.8125rem;
+		color: #64748b;
+	}
+
+	.my-game-right {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-shrink: 0;
+	}
+
+	.turn-info {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.status-badge {
+		display: inline-block;
+		padding: 0.15rem 0.5rem;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.03em;
+	}
+
+	.badge-your-turn {
+		background: #dcfce7;
+		color: #166534;
+		border: 1px solid #bbf7d0;
+	}
+
+	.badge-waiting {
+		background: #f1f5f9;
+		color: #64748b;
+		border: 1px solid #e2e8f0;
+	}
+
+	.badge-paused {
+		background: #fef3c7;
+		color: #92400e;
+		border: 1px solid #fde68a;
+	}
+
+	.time-remaining {
+		font-size: 0.8125rem;
+		color: #374151;
+		font-weight: 500;
+	}
+
+	.time-remaining--muted {
+		color: #94a3b8;
+	}
+
+	.timer-mode-badge {
+		display: inline-block;
+		padding: 0.1rem 0.35rem;
+		background: #ede9fe;
+		color: #6d28d9;
+		border: 1px solid #c4b5fd;
+		border-radius: 3px;
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.03em;
+		vertical-align: middle;
+	}
+
+	/* ── Table list header with filter ── */
+
+	.table-list-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.filter-toggle {
+		display: flex;
+		border: 1px solid #d1d5db;
+		border-radius: 6px;
+		overflow: hidden;
+	}
+
+	.filter-btn {
+		padding: 0.3125rem 0.75rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		font-family: inherit;
+		background: #f9fafb;
+		color: #6b7280;
+		border: none;
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.filter-btn + .filter-btn {
+		border-left: 1px solid #d1d5db;
+	}
+
+	.filter-btn-active {
+		background: #2563eb;
+		color: #ffffff;
 	}
 
 	/* ── Table list ── */

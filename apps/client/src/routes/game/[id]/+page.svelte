@@ -23,6 +23,16 @@
 	import ChatPanel from '$lib/components/ChatPanel.svelte';
 	import { sendFriendRequest } from '$lib/api/friendApi.js';
 	import { authClient } from '$lib/auth-client';
+	import {
+		getTableBySession,
+		requestPause,
+		acceptPause,
+		declinePause,
+		resumeGame,
+		type TableAsyncMeta,
+	} from '$lib/api/lobbyApi.js';
+	import { subscribeToPush, isPushPermissionGranted, isInstalledPWA } from '$lib/pushSubscription.js';
+	import { subscribePush } from '$lib/api/notificationApi.js';
 
 	// Page data from load function (contains the game session ID from URL)
 	let { data }: { data: PageData } = $props();
@@ -75,6 +85,17 @@
 
 	// Floor overflow preference (opt-in; stored in localStorage)
 	let floorOverflowWarning = $state(false);
+
+	// Async game metadata (timer, pause state)
+	let asyncMeta = $state<TableAsyncMeta | null>(null);
+	let timerDisplay = $state<string | null>(null);
+	let timerColor = $state<'green' | 'yellow' | 'red'>('green');
+	let timerInterval: ReturnType<typeof setInterval> | null = null;
+	let pauseLoading = $state(false);
+	let pauseError = $state<string | null>(null);
+
+	// iOS push install notice
+	let showIosPushNotice = $state(false);
 
 	// Computed properties
 	let currentPlayerName = $derived(
@@ -207,6 +228,189 @@
 		}
 	}
 
+	/**
+	 * Format milliseconds into a human-readable countdown string.
+	 */
+	function formatCountdown(ms: number): string {
+		if (ms <= 0) return 'Expired';
+		const totalSecs = Math.floor(ms / 1000);
+		const days = Math.floor(totalSecs / 86400);
+		const hours = Math.floor((totalSecs % 86400) / 3600);
+		const mins = Math.floor((totalSecs % 3600) / 60);
+		const secs = totalSecs % 60;
+		if (days > 0) return `${days}d ${hours}h ${mins}m`;
+		if (hours > 0) return `${hours}h ${mins}m`;
+		return `${mins}:${String(secs).padStart(2, '0')}`;
+	}
+
+	/**
+	 * Update the timer display based on the current deadline.
+	 * Green > 50%, Yellow 25-50%, Red < 25%.
+	 */
+	function updateTimer(): void {
+		if (!asyncMeta?.turnDeadline || asyncMeta.isPaused) {
+			timerDisplay = null;
+			return;
+		}
+
+		const deadline = new Date(asyncMeta.turnDeadline).getTime();
+		const now = Date.now();
+		const remaining = deadline - now;
+
+		timerDisplay = formatCountdown(remaining);
+
+		// Determine total duration from timer mode to compute percentage
+		const timerMode = asyncMeta.timerMode;
+		const totalMs = timerMode === 'fast' ? 12 * 3600_000
+			: timerMode === 'slow' ? 72 * 3600_000
+			: 24 * 3600_000;
+
+		const pct = remaining / totalMs;
+		timerColor = pct > 0.5 ? 'green' : pct > 0.25 ? 'yellow' : 'red';
+	}
+
+	/**
+	 * Start the countdown interval for async game timers.
+	 */
+	function startTimerInterval(): void {
+		if (timerInterval) clearInterval(timerInterval);
+		updateTimer();
+		timerInterval = setInterval(updateTimer, 1000);
+	}
+
+	/**
+	 * Load async table metadata for the game page.
+	 */
+	async function loadAsyncMeta(sessionId: string): Promise<void> {
+		try {
+			asyncMeta = await getTableBySession(sessionId);
+			if (asyncMeta?.isAsync) {
+				startTimerInterval();
+			}
+		} catch {
+			// Non-critical — game still playable without async metadata
+		}
+	}
+
+	/**
+	 * Handle pause request from the current player.
+	 */
+	async function handlePauseRequest(): Promise<void> {
+		if (!asyncMeta) return;
+		pauseLoading = true;
+		pauseError = null;
+		try {
+			await requestPause(asyncMeta.tableId.toString());
+			asyncMeta = { ...asyncMeta, pauseRequestedByUserId: currentUserId, pauseRequestedByName: currentUserName };
+		} catch (e) {
+			pauseError = e instanceof Error ? e.message : 'Failed to request pause';
+		} finally {
+			pauseLoading = false;
+		}
+	}
+
+	/**
+	 * Handle pause accept from the opposing player.
+	 */
+	async function handlePauseAccept(): Promise<void> {
+		if (!asyncMeta) return;
+		pauseLoading = true;
+		pauseError = null;
+		try {
+			await acceptPause(asyncMeta.tableId.toString());
+			asyncMeta = { ...asyncMeta, isPaused: true, turnDeadline: null, pauseRequestedByUserId: null, pauseRequestedByName: null };
+			updateTimer();
+		} catch (e) {
+			pauseError = e instanceof Error ? e.message : 'Failed to accept pause';
+		} finally {
+			pauseLoading = false;
+		}
+	}
+
+	/**
+	 * Handle pause decline from the opposing player.
+	 */
+	async function handlePauseDecline(): Promise<void> {
+		if (!asyncMeta) return;
+		pauseLoading = true;
+		pauseError = null;
+		try {
+			await declinePause(asyncMeta.tableId.toString());
+			asyncMeta = { ...asyncMeta, pauseRequestedByUserId: null, pauseRequestedByName: null };
+		} catch (e) {
+			pauseError = e instanceof Error ? e.message : 'Failed to decline pause';
+		} finally {
+			pauseLoading = false;
+		}
+	}
+
+	/**
+	 * Handle game resume.
+	 */
+	async function handleResumeGame(): Promise<void> {
+		if (!asyncMeta) return;
+		pauseLoading = true;
+		pauseError = null;
+		try {
+			await resumeGame(asyncMeta.tableId.toString());
+			// Reload meta to get new deadline
+			const sessionId = data.id !== 'test' ? data.id : null;
+			if (sessionId) {
+				const updated = await getTableBySession(sessionId);
+				if (updated) {
+					asyncMeta = updated;
+					startTimerInterval();
+				}
+			}
+		} catch (e) {
+			pauseError = e instanceof Error ? e.message : 'Failed to resume game';
+		} finally {
+			pauseLoading = false;
+		}
+	}
+
+	/**
+	 * Auto-prompt for push permissions on first async game.
+	 * Only runs once per browser session.
+	 */
+	async function maybePushPrompt(): Promise<void> {
+		if (!asyncMeta?.isAsync) return;
+		if (!currentUserId) return;
+
+		// iOS: check if installed as PWA
+		if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+			if (!isInstalledPWA()) {
+				showIosPushNotice = true;
+				return;
+			}
+		}
+
+		// Already granted or already prompted this session
+		if (isPushPermissionGranted()) return;
+		try {
+			const alreadyPrompted = sessionStorage.getItem('bga2-push-prompted');
+			if (alreadyPrompted) return;
+		} catch {
+			return; // sessionStorage unavailable
+		}
+
+		try {
+			sessionStorage.setItem('bga2-push-prompted', '1');
+		} catch {
+			// ignore
+		}
+
+		const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+		if (!vapidKey) return;
+
+		const subscription = await subscribeToPush(vapidKey);
+		if (subscription) {
+			await subscribePush(subscription).catch(() => {
+				// Non-critical — push subscription storage is best-effort
+			});
+		}
+	}
+
 	onMount(async () => {
 		// Load floor overflow preference from localStorage
 		try {
@@ -274,6 +478,13 @@
 				showTurnBanner(gameState.playerNames[0] ?? 'Player 1');
 			}
 
+			// ── Load async table metadata (timer, pause state) ─────────────────
+			if (sessionId) {
+				await loadAsyncMeta(sessionId);
+				// Push permission auto-prompt (after we know if it's async)
+				await maybePushPrompt();
+			}
+
 			// ── AppSync real-time subscription (browser only) ─────────────────────
 			if (browser && sessionId) {
 				const { configureAppSync, subscribeToGame } = await import('$lib/appsync.js');
@@ -305,6 +516,9 @@
 	onDestroy(() => {
 		if (turnBannerTimer !== null) {
 			clearTimeout(turnBannerTimer);
+		}
+		if (timerInterval !== null) {
+			clearInterval(timerInterval);
 		}
 		sceneManager?.destroy();
 		sceneManager = null;
@@ -356,6 +570,21 @@
 		<span class="info-value">{gameState.validMoves.length}</span>
 	</div>
 
+	<!-- Async timer countdown -->
+	{#if asyncMeta?.isAsync && timerDisplay}
+		<div class="info-divider"></div>
+		<div class="info-section">
+			<span class="info-label">Deadline</span>
+			<span
+				class="info-value timer-countdown"
+				class:timer-green={timerColor === 'green'}
+				class:timer-yellow={timerColor === 'yellow'}
+				class:timer-red={timerColor === 'red'}
+				class:timer-pulse={timerColor === 'red'}
+			>{timerDisplay}</span>
+		</div>
+	{/if}
+
 	<div class="info-bar-settings">
 		<button
 			class="settings-toggle"
@@ -368,6 +597,51 @@
 		</button>
 	</div>
 </div>
+{/if}
+
+<!-- Async game banners (pause state, pause request) -->
+{#if asyncMeta?.isAsync && !loading && !errorMessage}
+	{#if asyncMeta.isPaused}
+		<div class="async-banner async-banner--paused" role="status">
+			Game Paused
+			{#if currentUserId}
+				<button class="async-banner-btn" onclick={handleResumeGame} disabled={pauseLoading}>
+					{pauseLoading ? 'Resuming...' : 'Resume Game'}
+				</button>
+			{/if}
+		</div>
+	{:else if asyncMeta.pauseRequestedByUserId && asyncMeta.pauseRequestedByUserId !== currentUserId}
+		<div class="async-banner async-banner--pause-request" role="status">
+			Pause requested by {asyncMeta.pauseRequestedByName ?? 'opponent'}
+			<button class="async-banner-btn async-banner-btn--accept" onclick={handlePauseAccept} disabled={pauseLoading}>
+				{pauseLoading ? '...' : 'Accept Pause'}
+			</button>
+			<button class="async-banner-btn async-banner-btn--decline" onclick={handlePauseDecline} disabled={pauseLoading}>
+				{pauseLoading ? '...' : 'Decline'}
+			</button>
+		</div>
+	{:else if asyncMeta.pauseRequestedByUserId === currentUserId}
+		<div class="pause-request-bar">
+			<span class="pause-pending-text">Pause request sent — waiting for opponent</span>
+		</div>
+	{:else if !asyncMeta.pauseRequestedByUserId}
+		<div class="pause-request-bar">
+			<button class="pause-btn" onclick={handlePauseRequest} disabled={pauseLoading}>
+				{pauseLoading ? 'Requesting...' : 'Request Pause'}
+			</button>
+		</div>
+	{/if}
+	{#if pauseError}
+		<div class="pause-error" role="alert">{pauseError}</div>
+	{/if}
+{/if}
+
+<!-- iOS push install notice -->
+{#if showIosPushNotice}
+	<div class="ios-push-notice" role="status">
+		Install BGA2 to your home screen to receive push notifications
+		<button class="ios-push-dismiss" onclick={() => { showIosPushNotice = false; }}>Dismiss</button>
+	</div>
 {/if}
 
 <!-- Turn change banner — fades in/out when turn changes -->
@@ -730,6 +1004,180 @@
 	.player-name.waiting {
 		color: #64748b;
 		font-weight: 400;
+	}
+
+	/* ── Async timer countdown ── */
+	.timer-countdown {
+		font-variant-numeric: tabular-nums;
+		font-weight: 600;
+	}
+
+	.timer-green {
+		color: #22c55e;
+	}
+
+	.timer-yellow {
+		color: #eab308;
+	}
+
+	.timer-red {
+		color: #ef4444;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.5; }
+	}
+
+	.timer-pulse {
+		animation: pulse 1.5s ease-in-out infinite;
+	}
+
+	/* ── Async banners (pause state / pause request) ── */
+	.async-banner {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 240;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 0.625rem 1rem;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.875rem;
+		font-weight: 500;
+		flex-wrap: wrap;
+	}
+
+	.async-banner--paused {
+		background: rgba(217, 119, 6, 0.92);
+		color: #fff;
+	}
+
+	.async-banner--pause-request {
+		background: rgba(37, 99, 235, 0.92);
+		color: #fff;
+	}
+
+	.async-banner-btn {
+		background: rgba(255, 255, 255, 0.2);
+		border: 1px solid rgba(255, 255, 255, 0.4);
+		border-radius: 4px;
+		color: #fff;
+		font-family: inherit;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		padding: 0.25rem 0.75rem;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.async-banner-btn:hover:not(:disabled) {
+		background: rgba(255, 255, 255, 0.3);
+	}
+
+	.async-banner-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.async-banner-btn--accept {
+		background: rgba(34, 197, 94, 0.3);
+		border-color: rgba(34, 197, 94, 0.6);
+	}
+
+	.async-banner-btn--decline {
+		background: rgba(239, 68, 68, 0.2);
+		border-color: rgba(239, 68, 68, 0.4);
+	}
+
+	/* ── Pause request bar (shown when game is active async, not paused) ── */
+	.pause-request-bar {
+		position: fixed;
+		bottom: 44px; /* above player info bar */
+		right: 0;
+		z-index: 140;
+		padding: 0.375rem 0.625rem;
+	}
+
+	.pause-btn {
+		background: rgba(15, 23, 42, 0.85);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 6px;
+		color: #94a3b8;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.75rem;
+		font-weight: 500;
+		padding: 0.25rem 0.625rem;
+		cursor: pointer;
+		transition: color 0.15s, background 0.15s;
+	}
+
+	.pause-btn:hover:not(:disabled) {
+		background: rgba(30, 41, 59, 0.95);
+		color: #e2e8f0;
+	}
+
+	.pause-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.pause-pending-text {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.75rem;
+		color: #64748b;
+	}
+
+	.pause-error {
+		position: fixed;
+		bottom: 52px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(220, 38, 38, 0.92);
+		color: #fff;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.8125rem;
+		padding: 0.375rem 1rem;
+		border-radius: 6px;
+		z-index: 260;
+	}
+
+	/* ── iOS push install notice ── */
+	.ios-push-notice {
+		position: fixed;
+		bottom: 52px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(15, 23, 42, 0.92);
+		color: #e2e8f0;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.8125rem;
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		z-index: 260;
+		white-space: nowrap;
+	}
+
+	.ios-push-dismiss {
+		background: rgba(255, 255, 255, 0.1);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 4px;
+		color: #94a3b8;
+		font-family: inherit;
+		font-size: 0.75rem;
+		padding: 0.15rem 0.5rem;
+		cursor: pointer;
+	}
+
+	.ios-push-dismiss:hover {
+		color: #e2e8f0;
 	}
 
 	/* ── Score summary overlay ── */

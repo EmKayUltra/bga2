@@ -4,7 +4,7 @@
 	import { getProfile, updateProfile, updateUsername, type ProfileResponse } from '$lib/api/socialApi';
 	import { getAvatarEmoji, PRESET_AVATAR_IDS } from '$lib/avatars';
 	import { getPreferences, updatePreferences, subscribePush } from '$lib/api/notificationApi';
-	import { subscribeToPush, isPushPermissionGranted, isInstalledPWA } from '$lib/pushSubscription';
+	import { subscribeToPush } from '$lib/pushSubscription';
 
 	// ── Auth guard ─────────────────────────────────────────────────────────────
 	const session = authClient.useSession();

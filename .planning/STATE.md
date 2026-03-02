@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T04:20:00.000Z"
+last_updated: "2026-03-02T17:28:12.545Z"
 progress:
-  total_phases: 6
+  total_phases: 4
   completed_phases: 3
   total_plans: 22
   completed_plans: 21
@@ -44,6 +44,7 @@ Progress: [█████░░░░░] 63% (3.75 of 6 phases complete)
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
 | 03-multiplayer-social | 6/6 | ~62 min | 10.3 min |
 | Phase 03-multiplayer-social P07 | 6 | 2 tasks | 2 files |
+| Phase 04 P02 | 7 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,8 @@ Recent decisions affecting current work:
 - [Phase 04-03]: workbox packages added as explicit devDeps even though @vite-pwa/sveltekit has transitive deps — direct TS imports require them in scope
 - [Phase 04-03]: GetPreferences returns inline defaults (not DB row) for new users — avoids forced insert on first GET
 - [Phase 04-03]: notification tag bga2-turn with renotify=true collapses duplicate turn notifications, still vibrates/sounds
+- [Phase 04-02]: VapidAuthentication passed per-call to RequestPushMessageDeliveryAsync — thread-safe for concurrent Hangfire jobs
+- [Phase 04-02]: PendingReminderJobId stored on GameTable — BackgroundJob.Schedule job ID stored for cancellation via BackgroundJob.Delete on next player move
 
 ### Pending Todos
 

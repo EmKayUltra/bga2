@@ -17,6 +17,8 @@
 	import type { PageData } from './$types.js';
 	import type { SceneManagerState } from '$lib/engine/SceneManager.js';
 	import type { GameState } from '@bga2/shared-types';
+	import type { GameStateResponse } from '$lib/api/gameApi.js';
+	import DevMenu from '$lib/components/DevMenu.svelte';
 
 	// Page data from load function (contains the game session ID from URL)
 	let { data }: { data: PageData } = $props();
@@ -116,6 +118,31 @@
 	 */
 	function startNewGame(): void {
 		window.location.href = '/';
+	}
+
+	/**
+	 * Handle a state update from the DevMenu.
+	 * Pushes fresh state from the dev endpoint through SceneManager and triggers re-render.
+	 */
+	function handleDevStateUpdate(response: GameStateResponse): void {
+		if (!sceneManager) return;
+		// Push fresh state into SceneManager
+		sceneManager.state.gameState = response.state;
+		sceneManager.state.validMoves = response.validMoves;
+		sceneManager.state.currentPlayerIndex = response.state.currentPlayerIndex;
+		sceneManager.state.playerNames = response.state.players.map((p: any) => p.name);
+		sceneManager.state.playerScores = response.state.players.map((p: any) => p.score);
+		// Trigger reactive update
+		gameState = { ...sceneManager.state };
+		// Re-render the scene with new state
+		if ((sceneManager as any).scene) {
+			(sceneManager as any).scene.updateFromState(response.state);
+			(sceneManager as any).scene.setActivePlayer(response.state.currentPlayerIndex);
+		}
+		// Check for game end
+		if (response.state.finished) {
+			finishedGameState = response.state;
+		}
 	}
 
 	/**
@@ -268,6 +295,13 @@
 {/if}
 
 <!-- Score summary overlay — shown when game is finished -->
+<!-- Dev menu — toggled with backtick key, bottom-right corner, z-index 500 -->
+<DevMenu
+	sessionId={gameState.sessionId}
+	gameState={gameState}
+	onStateUpdated={handleDevStateUpdate}
+/>
+
 {#if finishedGameState}
 <div class="score-overlay" role="dialog" aria-label="Game over — score summary">
 	<div class="score-modal">

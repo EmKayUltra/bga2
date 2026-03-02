@@ -151,6 +151,58 @@ export async function getGameState(sessionId: string): Promise<GameStateResponse
   return result;
 }
 
+// ─── Dev API functions ────────────────────────────────────────────────────────
+
+/**
+ * Dev: Trigger onRoundEnd hook for the current session state.
+ * Updates state server-side and returns the new state.
+ */
+export async function devTriggerRoundEnd(sessionId: string): Promise<GameStateResponse> {
+  const res = await fetch(`${API_BASE}/dev/${encodeURIComponent(sessionId)}/trigger-round-end`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Dev trigger-round-end failed: HTTP ${res.status}`);
+  const raw = await res.json();
+  return {
+    state: typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state,
+    validMoves: raw.validMoves ?? [],
+  };
+}
+
+/**
+ * Dev: Set finished=true and determine winner for the current session.
+ * Updates state server-side and returns the new state.
+ */
+export async function devTriggerGameEnd(sessionId: string): Promise<GameStateResponse> {
+  const res = await fetch(`${API_BASE}/dev/${encodeURIComponent(sessionId)}/trigger-game-end`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Dev trigger-game-end failed: HTTP ${res.status}`);
+  const raw = await res.json();
+  return {
+    state: typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state,
+    validMoves: raw.validMoves ?? [],
+  };
+}
+
+/**
+ * Dev: Shallow-merge arbitrary JSON properties onto the current game state.
+ * Each key in overrides replaces the same key in the state root.
+ */
+export async function devSetState(sessionId: string, overrides: Record<string, unknown>): Promise<GameStateResponse> {
+  const res = await fetch(`${API_BASE}/dev/${encodeURIComponent(sessionId)}/set-state`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(overrides),
+  });
+  if (!res.ok) throw new Error(`Dev set-state failed: HTTP ${res.status}`);
+  const raw = await res.json();
+  return {
+    state: typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state,
+    validMoves: raw.validMoves ?? [],
+  };
+}
+
 /**
  * Submit a player move to the server for validation and execution.
  *

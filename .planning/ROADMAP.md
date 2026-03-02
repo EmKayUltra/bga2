@@ -70,7 +70,7 @@ Plans:
   3. A player who closes their tab mid-game and reopens it sees the current board state and can continue playing — reconnection re-fetches server state before enabling moves
   4. A player has a profile with username and avatar; their match history shows completed games with results, opponents, and dates
   5. The PWA installs to the home screen from the browser install prompt and launches as a standalone app
-**Plans:** 6 plans in 4 waves
+**Plans:** 3/6 plans executed
 
 Plans:
 - [x] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
@@ -123,7 +123,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
-| 3. Multiplayer + Social | 1/6 | In progress | - |
+| 3. Multiplayer + Social | 3/6 | In Progress|  |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |

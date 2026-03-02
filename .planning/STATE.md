@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T01:35:05Z"
+last_updated: "2026-03-02T01:45:05Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 11
-  completed_plans: 12
+  completed_plans: 14
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 3 in progress — Plan 01 (Auth) complete, Plans 02-05 remain
+**Current focus:** Phase 3 in progress — Plans 01-02 complete, Plans 03-05 remain
 
 ## Current Position
 
 Phase: 3 of 6 — IN PROGRESS (Multiplayer + Social)
-Plans: 1/5 complete (03-01: Auth + entity scaffolding)
-Status: Phase 3 started. Plan 01 complete. Next: Plan 02 (Lobby)
-Last activity: 2026-03-02 — Completed 03-01: Better Auth + JWT Bearer + Phase 3 entity scaffolding
+Plans: 2/5 complete (03-01: Auth + entity scaffolding, 03-02: Lobby)
+Status: Phase 3 in progress. Plans 01-02 complete. Next: Plan 03 (Match History)
+Last activity: 2026-03-02 — Completed 03-02: Lobby system (table CRUD, waiting room, Quick Play)
 
 Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 
@@ -42,7 +42,7 @@ Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
-| 03-multiplayer-social | 1/5 | ~15 min | 15 min |
+| 03-multiplayer-social | 2/5 | ~25 min | 12.5 min |
 
 ## Accumulated Context
 
@@ -75,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 03-01]: hooks.server.ts uses relative import (./lib/auth.js) instead of $lib alias because tsconfig.base.json paths override .svelte-kit/tsconfig.json paths
 - [Phase 03-01]: Better Auth CLI: use @better-auth/cli@1.5.0-beta.13 with --yes --config flags; @latest (1.4.x) is incompatible with better-auth 1.5.0
 - [Phase 03-01]: JWT Bearer uses Authority=client:5173/api/auth, RequireHttpsMetadata=false, ValidateIssuer=false, ValidateAudience=false in dev
+- [Phase 03-02]: SHA-256 for table passwords (not BCrypt) — table join guards are low-stakes, BCrypt overkill
+- [Phase 03-02]: JWT token cached 30s in lobbyApi.ts to avoid per-poll /api/auth/token requests
+- [Phase 03-02]: idempotent JoinTable — already-joined user returns success (prevents duplicate constraint on TableId+UserId index)
 
 ### Pending Todos
 
@@ -110,5 +113,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-01-PLAN.md — Better Auth + JWT Bearer + Phase 3 entity scaffolding.
-Resume file: none — ready for Plan 02 (Lobby)
+Stopped at: Completed 03-02-PLAN.md — Lobby system: table CRUD API, polling lobby page, waiting room.
+Resume file: none — ready for Plan 03 (Match History)

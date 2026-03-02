@@ -41,6 +41,7 @@
 	let emailEnabled = $state(true);
 	let pushEnabled = $state(true);
 	let reminderHours = $state(4);
+	let deliveryMode = $state<'immediate' | 'daily_digest'>('immediate');
 	let pushPermission = $state<'default' | 'granted' | 'denied'>('default');
 	let pushSubscribeLoading = $state(false);
 	let notifSaveLoading = $state(false);
@@ -76,6 +77,7 @@
 				emailEnabled = prefs.emailEnabled;
 				pushEnabled = prefs.pushEnabled;
 				reminderHours = prefs.reminderHoursBeforeDeadline;
+				deliveryMode = prefs.deliveryMode ?? 'immediate';
 			}
 			loading = false;
 		}).catch((e: unknown) => {
@@ -111,6 +113,7 @@
 				emailEnabled,
 				pushEnabled,
 				reminderHoursBeforeDeadline: reminderHours,
+				deliveryMode,
 			});
 			notifSaveSuccess = 'Notification preferences saved!';
 		} catch (e) {
@@ -326,6 +329,36 @@
 					</button>
 				</div>
 			{/if}
+
+			<!-- Delivery mode -->
+			<div class="field-row">
+				<label class="label">Delivery mode</label>
+				<div class="mode-toggle" role="radiogroup" aria-label="Notification delivery mode">
+					<button
+						type="button"
+						class="mode-btn"
+						class:mode-btn-active={deliveryMode === 'immediate'}
+						onclick={() => (deliveryMode = 'immediate')}
+					>
+						Immediate
+					</button>
+					<button
+						type="button"
+						class="mode-btn"
+						class:mode-btn-active={deliveryMode === 'daily_digest'}
+						onclick={() => (deliveryMode = 'daily_digest')}
+					>
+						Daily Digest
+					</button>
+				</div>
+			</div>
+			<p class="section-desc">
+				{#if deliveryMode === 'daily_digest'}
+					Turn notifications are batched into a single daily email at 9:00 AM UTC.
+				{:else}
+					Turn notifications are sent immediately when it becomes your turn.
+				{/if}
+			</p>
 
 			<!-- Reminder timing -->
 			<div class="field-row">
@@ -625,6 +658,36 @@
 	.save-button:disabled {
 		opacity: 0.7;
 		cursor: not-allowed;
+	}
+
+	/* Delivery mode toggle */
+	.mode-toggle {
+		display: flex;
+		border: 1px solid #d1d5db;
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.mode-btn {
+		flex: 1;
+		padding: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		font-family: inherit;
+		background: #f9fafb;
+		color: #6b7280;
+		border: none;
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.mode-btn + .mode-btn {
+		border-left: 1px solid #d1d5db;
+	}
+
+	.mode-btn-active {
+		background: #2563eb;
+		color: #ffffff;
 	}
 
 	/* Notifications section */

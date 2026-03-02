@@ -11,6 +11,7 @@
 		type CreateTableRequest,
 		type MyGameItem,
 	} from '$lib/api/lobbyApi.js';
+	import { optOutGame, optInGame } from '$lib/api/notificationApi';
 
 	// ── Session ──────────────────────────────────────────────────────────────
 	const session = authClient.useSession();
@@ -27,6 +28,7 @@
 	// My Games section for active async games
 	let myGames = $state<MyGameItem[]>([]);
 	let myGamesPollInterval: ReturnType<typeof setInterval> | null = null;
+	let gameOptOuts = $state<Record<string, boolean>>({});
 
 	// Create dialog state
 	let showCreate = $state(false);
@@ -36,7 +38,7 @@
 	let createIsPrivate = $state(false);
 	let createPassword = $state('');
 	let createIsAsync = $state(false);
-	let createTimerMode = $state<'fast' | 'normal' | 'slow'>('normal');
+	let createTimerMode = $state<'fast' | 'normal' | 'slow' | 'unlimited'>('normal');
 	let createSkipThreshold = $state(3);
 	let createError = $state<string | null>(null);
 	let createLoading = $state(false);
@@ -220,18 +222,37 @@
 						{:else if game.isMyTurn}
 							<div class="turn-info">
 								<span class="status-badge badge-your-turn">Your Turn</span>
-								{#if game.turnDeadline}
+								{#if game.timerMode === 'unlimited'}
+									<!-- No deadline for unlimited games -->
+								{:else if game.turnDeadline}
 									<span class="time-remaining">{formatTimeRemaining(game.turnDeadline)}</span>
 								{/if}
 							</div>
 						{:else}
 							<div class="turn-info">
 								<span class="status-badge badge-waiting">Waiting</span>
-								{#if game.turnDeadline}
+								{#if game.timerMode === 'unlimited'}
+									<!-- No deadline for unlimited games -->
+								{:else if game.turnDeadline}
 									<span class="time-remaining time-remaining--muted">{formatTimeRemaining(game.turnDeadline)}</span>
 								{/if}
 							</div>
 						{/if}
+						<button
+							class="btn btn-sm btn-mute"
+							title={gameOptOuts[game.tableId] ? 'Unmute notifications' : 'Mute notifications'}
+							onclick={async () => {
+								if (gameOptOuts[game.tableId]) {
+									await optInGame(game.tableId);
+									gameOptOuts[game.tableId] = false;
+								} else {
+									await optOutGame(game.tableId);
+									gameOptOuts[game.tableId] = true;
+								}
+							}}
+						>
+							{gameOptOuts[game.tableId] ? 'Unmute' : 'Mute'}
+						</button>
 						<a href="/game/{game.sessionId}" class="btn btn-sm btn-join">Play</a>
 					</div>
 				</li>
@@ -284,7 +305,7 @@
 							<span class="table-name">
 								{table.displayName}
 								{#if table.isAsync}
-									<span class="async-badge" title="Async game — {table.timerMode === 'fast' ? '12h' : table.timerMode === 'slow' ? '72h' : '24h'}/turn">
+									<span class="async-badge" title="Async game — {table.timerMode === 'fast' ? '12h' : table.timerMode === 'slow' ? '72h' : table.timerMode === 'unlimited' ? 'No limit' : '24h'}/turn">
 										Async
 									</span>
 								{/if}
@@ -292,7 +313,7 @@
 							<span class="table-meta">
 								{table.gameId} &bull; hosted by {table.hostName} &bull; {formatAge(table.createdAt)}
 								{#if table.isAsync && table.timerMode}
-									&bull; {table.timerMode === 'fast' ? '12h' : table.timerMode === 'slow' ? '72h' : '24h'}/turn
+									&bull; {table.timerMode === 'fast' ? '12h' : table.timerMode === 'slow' ? '72h' : table.timerMode === 'unlimited' ? 'No limit' : '24h'}/turn
 								{/if}
 							</span>
 						</div>
@@ -451,6 +472,15 @@
 							disabled={createLoading}
 						>
 							Slow<br /><span class="timer-hint">72h</span>
+						</button>
+						<button
+							type="button"
+							class="timer-btn"
+							class:timer-btn-active={createTimerMode === 'unlimited'}
+							onclick={() => (createTimerMode = 'unlimited')}
+							disabled={createLoading}
+						>
+							Unlimited<br /><span class="timer-hint">No timer</span>
 						</button>
 					</div>
 				</div>
@@ -612,6 +642,17 @@
 
 	.btn-join:hover {
 		background: #1d4ed8;
+	}
+
+	.btn-mute {
+		background: #f1f5f9;
+		color: #64748b;
+		border: 1px solid #e2e8f0;
+		font-size: 0.75rem;
+	}
+
+	.btn-mute:hover {
+		background: #e2e8f0;
 	}
 
 	/* ── My Games section ── */

@@ -31,7 +31,7 @@ export interface CreateTableRequest {
   isPrivate: boolean;
   password?: string;
   isAsync?: boolean;        // NEW: async game mode
-  timerMode?: string;       // NEW: "fast" | "normal" | "slow"
+  timerMode?: string;       // NEW: "fast" | "normal" | "slow" | "unlimited"
   skipThreshold?: number;   // NEW: 0 = disable auto-forfeit, default 3
 }
 
@@ -44,7 +44,7 @@ export interface TableListItem {
   maxPlayers: number;
   createdAt: string;
   isAsync: boolean;         // NEW: whether this is an async game
-  timerMode?: string;       // NEW: "fast" | "normal" | "slow" | undefined
+  timerMode?: string;       // NEW: "fast" | "normal" | "slow" | "unlimited" | undefined
 }
 
 export interface TablePlayerInfo {

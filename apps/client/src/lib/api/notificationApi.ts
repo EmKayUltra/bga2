@@ -74,6 +74,7 @@ export interface NotificationPreferences {
 	emailEnabled: boolean;
 	pushEnabled: boolean;
 	reminderHoursBeforeDeadline: number;
+	deliveryMode: 'immediate' | 'daily_digest';
 }
 
 export async function getPreferences(): Promise<NotificationPreferences> {
@@ -93,4 +94,24 @@ export async function updatePreferences(prefs: NotificationPreferences): Promise
 		body: JSON.stringify(prefs),
 	});
 	if (!res.ok) throw new Error(`Update preferences failed: ${res.status}`);
+}
+
+// ─── Per-game notification opt-out ────────────────────────────────────────
+
+export async function optOutGame(tableId: string): Promise<void> {
+	const token = await getApiToken();
+	const res = await fetch(`${API_BASE}/notifications/opt-out/${tableId}`, {
+		method: 'POST',
+		headers: authHeaders(token),
+	});
+	if (!res.ok) throw new Error(`Opt-out failed: ${res.status}`);
+}
+
+export async function optInGame(tableId: string): Promise<void> {
+	const token = await getApiToken();
+	const res = await fetch(`${API_BASE}/notifications/opt-out/${tableId}`, {
+		method: 'DELETE',
+		headers: authHeaders(token),
+	});
+	if (!res.ok) throw new Error(`Opt-in failed: ${res.status}`);
 }

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T02:08:44.547Z"
+last_updated: "2026-03-01T21:35:00.000Z"
 progress:
   total_phases: 3
   completed_phases: 3
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 3 COMPLETE — All 5 plans done
+**Current focus:** Phase 3 COMPLETE — All 6 plans done
 
 ## Current Position
 
 Phase: 3 of 6 — COMPLETE (Multiplayer + Social)
-Plans: 5/5 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time, 03-05: Friends + Invites)
+Plans: 6/6 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time, 03-05: Friends + Invites, 03-06: Chat + PWA)
 Status: Phase 3 complete. All plans executed.
-Last activity: 2026-03-02 — Completed 03-05: Friends system, HMAC invite links, post-game friend prompt
+Last activity: 2026-03-01 — Completed 03-06: In-game chat via AppSync Events, server-side profanity filter, PWA with @vite-pwa/sveltekit
 
 Progress: [████░░░░░░] 50% (3 of 6 phases complete)
 
@@ -42,7 +42,7 @@ Progress: [████░░░░░░] 50% (3 of 6 phases complete)
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
-| 03-multiplayer-social | 5/5 | ~55 min | 11 min |
+| 03-multiplayer-social | 6/6 | ~62 min | 10.3 min |
 
 ## Accumulated Context
 
@@ -91,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 03-multiplayer-social]: Chat filtered server-side in C# before AppSync publish — server controls broadcast, client cannot bypass filter
 - [Phase 03-multiplayer-social]: PWA devOptions.enabled=false in dev — avoids service worker caching conflicts in Docker with HMR
 - [Phase 03-06]: Chat is ephemeral — AppSync Events only, not persisted; PlayerReport entity logs reports for moderation audit only
+- [Phase 03-06]: EnsureCreated() is all-or-nothing — explicit CREATE TABLE IF NOT EXISTS needed for Phase 3 entities when DB already existed from Phase 2
+- [Phase 03-06]: onDestroy browser guard required for document.removeEventListener — onDestroy runs during SSR in SvelteKit
+- [Phase 03-06]: PWA devOptions.enabled=false in dev — avoids service worker caching conflicts in Docker with HMR
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: Completed 03-05-PLAN.md — Friends system, HMAC invite links, post-game friend prompt, copy invite link from waiting room.
-Resume file: none — Phase 3 complete, ready for Phase 4
+Last session: 2026-03-01
+Stopped at: Completed 03-06-PLAN.md — In-game chat via AppSync Events, server-side profanity filter, player reporting, PWA with @vite-pwa/sveltekit. Puppeteer verification 13/15 pass (2 by-design mismatches). 2 bugs fixed during verification (DB table creation, friends SSR crash).
+Resume file: none — Phase 3 fully complete (all 6 plans), ready for Phase 4

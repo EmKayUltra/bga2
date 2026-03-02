@@ -55,10 +55,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Azul game hooks TDD (getValidMoves, onMove, onRoundEnd — full rules)
-- [ ] 02-02-PLAN.md -- Server updates (CreateGame with players, HookExecutor context fix, auto-onRoundEnd)
-- [ ] 02-03-PLAN.md -- Client scene (multi-player turn tracking, 2-4 player boards, tap-select interaction, score summary)
-- [ ] 02-04-PLAN.md -- Client routes (landing page, game list, player name entry) + visual verification checkpoint
+- [x] 02-01-PLAN.md -- Azul game hooks TDD (getValidMoves, onMove, onRoundEnd — full rules)
+- [x] 02-02-PLAN.md -- Server updates (CreateGame with players, HookExecutor context fix, auto-onRoundEnd)
+- [x] 02-03-PLAN.md -- Client scene (multi-player turn tracking, 2-4 player boards, tap-select interaction, score summary)
+- [x] 02-04-PLAN.md -- Client routes (landing page, game list, player name entry) + visual verification checkpoint
 
 ### Phase 3: Multiplayer + Social
 **Goal**: Two or more players on different devices can play Azul in real time, find each other through the lobby, and play with friends via invite — the platform becomes multiplayer
@@ -74,11 +74,11 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
-- [ ] 03-02-PLAN.md -- Lobby + table management (create/join/start tables, waiting room, Quick Play)
-- [ ] 03-03-PLAN.md -- User profiles + match history (avatar selector, stats, game results)
-- [ ] 03-04-PLAN.md -- Real-time gameplay (AppSync Events, idempotent moves, reconnection, optimistic locking)
-- [ ] 03-05-PLAN.md -- Friends + game invites (friend requests, search, invite links, post-game prompts)
-- [ ] 03-06-PLAN.md -- Chat + PWA (in-game chat with word filter, PWA manifest + service worker)
+- [x] 03-02-PLAN.md -- Lobby + table management (create/join/start tables, waiting room, Quick Play)
+- [x] 03-03-PLAN.md -- User profiles + match history (avatar selector, stats, game results)
+- [x] 03-04-PLAN.md -- Real-time gameplay (AppSync Events, idempotent moves, reconnection, optimistic locking)
+- [x] 03-05-PLAN.md -- Friends + game invites (friend requests, search, invite links, post-game prompts)
+- [x] 03-06-PLAN.md -- Chat + PWA (in-game chat with word filter, PWA manifest + service worker)
 
 ### Phase 4: Async + Notifications
 **Goal**: Players can start a game and take turns over days or weeks — the platform supports the dominant adult play pattern (async) with notifications that keep games moving without causing fatigue
@@ -123,11 +123,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
-| 3. Multiplayer + Social | 6/6 | Complete   | 2026-03-02 |
+| 3. Multiplayer + Social | 6/6 | Complete   | 2026-03-01 |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-02 — Phase 3 Plan 01 complete (auth + entity scaffolding)*
+*Last updated: 2026-03-01 — Phase 3 complete: all 6 plans done (03-06: Chat + PWA)*

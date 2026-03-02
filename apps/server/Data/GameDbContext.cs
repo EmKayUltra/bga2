@@ -23,6 +23,11 @@ public class GameDbContext : DbContext
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<PlayerReport> PlayerReports => Set<PlayerReport>();
 
+    // Phase 4 entities
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // ── GameSession ──────────────────────────────────────────────────────
@@ -90,6 +95,13 @@ public class GameDbContext : DbContext
 
             // Index on Status for efficient lobby listing queries
             entity.HasIndex(e => e.Status);
+
+            // Async mode fields (Phase 4)
+            entity.Property(e => e.TimerMode).HasMaxLength(16);
+            entity.Property(e => e.PauseRequestedByUserId).HasMaxLength(64);
+
+            // Index on TurnDeadline for efficient deadline checker queries
+            entity.HasIndex(e => e.TurnDeadline);
         });
 
         // ── TablePlayer ──────────────────────────────────────────────────────
@@ -222,6 +234,72 @@ public class GameDbContext : DbContext
 
             // Index on ReporterUserId + CreatedAt for rate limiting
             entity.HasIndex(e => new { e.ReporterUserId, e.CreatedAt });
+        });
+
+        // ── PushSubscription ─────────────────────────────────────────────────
+        modelBuilder.Entity<PushSubscription>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.Endpoint)
+                .HasMaxLength(2048)
+                .IsRequired();
+
+            entity.Property(e => e.P256dh)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(e => e.Auth)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            // Index on UserId to load all subscriptions for a user
+            entity.HasIndex(e => e.UserId);
+        });
+
+        // ── NotificationPreference ───────────────────────────────────────────
+        modelBuilder.Entity<NotificationPreference>(entity =>
+        {
+            // UserId is PK (references Better Auth user.id)
+            entity.HasKey(e => e.UserId);
+
+            entity.Property(e => e.UserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("NOW()");
+        });
+
+        // ── NotificationLog ──────────────────────────────────────────────────
+        modelBuilder.Entity<NotificationLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.Channel)
+                .HasMaxLength(16)
+                .IsRequired();
+
+            entity.Property(e => e.SentAt)
+                .HasDefaultValueSql("NOW()");
+
+            // Unique index for idempotency: never send the same notification twice
+            entity.HasIndex(e => new { e.SessionId, e.TurnVersion, e.UserId, e.Channel })
+                .IsUnique();
+
+            // Index on SessionId to look up all notifications for a session
+            entity.HasIndex(e => e.SessionId);
         });
     }
 }

@@ -1,6 +1,8 @@
 using Bga2.Server.Data;
 using Bga2.Server.Endpoints;
 using Bga2.Server.Services;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +19,12 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddDbContext<GameDbContext>(opts =>
     opts.UseNpgsql(connectionString));
+
+// ─── Hangfire background job processing ───────────────────────────────────────
+builder.Services.AddHangfire(config =>
+    config.UsePostgreSqlStorage(opts =>
+        opts.UseNpgsqlConnection(connectionString)));
+builder.Services.AddHangfireServer();
 
 // ─── HTTP client factory (used by AppSyncPublisher) ───────────────────────────
 builder.Services.AddHttpClient();
@@ -168,6 +176,51 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS "IX_PlayerReports_ReporterUserId_CreatedAt" ON "PlayerReports" ("ReporterUserId", "CreatedAt");
 
         ALTER TABLE "GameSessions" ADD COLUMN IF NOT EXISTS "PlayedMoveIds" jsonb NOT NULL DEFAULT '[]';
+
+        -- Phase 4: Add async game mode columns to GameTables (safe if already exist)
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "IsAsync" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "TimerMode" varchar(16);
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "SkipThreshold" integer NOT NULL DEFAULT 3;
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "TurnDeadline" timestamptz;
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "ConsecutiveSkipsCurrentPlayer" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "IsPaused" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "PauseRequestedByUserId" varchar(64);
+        CREATE INDEX IF NOT EXISTS "IX_GameTables_TurnDeadline" ON "GameTables" ("TurnDeadline");
+
+        -- Phase 4: Web Push subscriptions
+        CREATE TABLE IF NOT EXISTS "PushSubscriptions" (
+            "Id" uuid NOT NULL DEFAULT gen_random_uuid(),
+            "UserId" varchar(64) NOT NULL,
+            "Endpoint" varchar(2048) NOT NULL,
+            "P256dh" varchar(256) NOT NULL,
+            "Auth" varchar(256) NOT NULL,
+            "CreatedAt" timestamptz NOT NULL DEFAULT NOW(),
+            CONSTRAINT "PK_PushSubscriptions" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_PushSubscriptions_UserId" ON "PushSubscriptions" ("UserId");
+
+        -- Phase 4: Notification preferences per user
+        CREATE TABLE IF NOT EXISTS "NotificationPreferences" (
+            "UserId" varchar(64) NOT NULL,
+            "EmailEnabled" boolean NOT NULL DEFAULT true,
+            "PushEnabled" boolean NOT NULL DEFAULT true,
+            "ReminderHoursBeforeDeadline" integer NOT NULL DEFAULT 4,
+            "UpdatedAt" timestamptz NOT NULL DEFAULT NOW(),
+            CONSTRAINT "PK_NotificationPreferences" PRIMARY KEY ("UserId")
+        );
+
+        -- Phase 4: Notification send log for idempotency
+        CREATE TABLE IF NOT EXISTS "NotificationLogs" (
+            "Id" uuid NOT NULL DEFAULT gen_random_uuid(),
+            "SessionId" uuid NOT NULL,
+            "TurnVersion" integer NOT NULL DEFAULT 0,
+            "UserId" varchar(64) NOT NULL,
+            "Channel" varchar(16) NOT NULL,
+            "SentAt" timestamptz NOT NULL DEFAULT NOW(),
+            CONSTRAINT "PK_NotificationLogs" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_NotificationLogs_Idempotency" ON "NotificationLogs" ("SessionId", "TurnVersion", "UserId", "Channel");
+        CREATE INDEX IF NOT EXISTS "IX_NotificationLogs_SessionId" ON "NotificationLogs" ("SessionId");
         """);
 }
 
@@ -177,6 +230,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Hangfire dashboard — available at /hangfire in dev
+app.UseHangfireDashboard("/hangfire");
+
+// TODO(Plan 02): RecurringJob.AddOrUpdate<DeadlineService>("deadline-checker", ...)
 
 app.UseCors("DevCors");
 

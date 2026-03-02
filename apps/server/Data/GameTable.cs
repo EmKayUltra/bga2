@@ -18,6 +18,15 @@ public class GameTable
     public Guid? SessionId { get; set; }                 // FK to GameSession when game starts
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    // ── Async game mode fields (Phase 4) ────────────────────────────────────
+    public bool IsAsync { get; set; }
+    public string? TimerMode { get; set; }              // "fast" | "normal" | "slow" | null
+    public int SkipThreshold { get; set; } = 3;         // 0 = disable auto-forfeit
+    public DateTime? TurnDeadline { get; set; }          // UTC deadline for current turn; null if real-time or paused
+    public int ConsecutiveSkipsCurrentPlayer { get; set; }
+    public bool IsPaused { get; set; }
+    public string? PauseRequestedByUserId { get; set; }
 }
 
 public enum TableStatus { Waiting, Playing, Finished }

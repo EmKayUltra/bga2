@@ -17,7 +17,6 @@ export const auth = betterAuth({
 		jwt(),
 	],
 	basePath: "/api/auth",
-	baseURL: "http://localhost:5173",
 });
 
 export default auth;

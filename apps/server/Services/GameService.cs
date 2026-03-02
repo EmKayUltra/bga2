@@ -52,7 +52,7 @@ public class GameService
     /// Center starts with only the first-player token.
     /// Per-player zones: pattern lines (1-5), wall, floor-line (all empty).
     /// </summary>
-    public async Task<CreateGameResponse> CreateGame(string gameId, string[] playerNames)
+    public async Task<CreateGameResponse> CreateGame(string gameId, string[] playerNames, string[]? userIds = null)
     {
         // Clamp player count to valid Azul range (2-4)
         var playerCount = Math.Clamp(playerNames.Length, 2, 4);
@@ -127,10 +127,13 @@ public class GameService
         }
 
         // Build players array
+        // userId is the real Better Auth user ID for lobby games; null for hot-seat games.
+        // The id field stays as "player-{i}" — game-scoped identifier used throughout hooks.ts and FSM.
         var players = actualPlayerNames.Select((name, i) => new
         {
             id = $"player-{i}",
             name,
+            userId = userIds != null && i < userIds.Length ? userIds[i] : (string?)null,
             score = 0,
             data = new
             {
@@ -486,14 +489,15 @@ public class GameService
 
     /// <summary>
     /// Extracts player results from the finished game state.
-    /// Maps players by index; uses player.id as userId.
+    /// Maps players by index; prefers the userId field (real Better Auth ID for lobby games)
+    /// over the id field (game-scoped "player-{i}") for match result recording.
     /// Determines winner by highest score (or Won field if present).
     /// Returns empty list if players array is missing or malformed.
     ///
-    /// NOTE: player.id in the state is "player-0", "player-1" etc. (not real user IDs).
-    /// For Phase 3 the game was created without real user IDs attached — we record the
-    /// game-scoped player IDs. When lobby integration (Plan 02) is complete, real user
-    /// IDs will be passed in. This provides the hook but may not link to real profiles yet.
+    /// NOTE: For lobby games, player.userId contains the real Better Auth user ID — these
+    /// get recorded as MatchResult.UserId so ProfileService.GetMatchHistory can find them.
+    /// For hot-seat games or legacy state, player.userId is absent/null — falls back to
+    /// player.id ("player-0" etc.) which is game-scoped and will not match any user profile.
     /// </summary>
     private static List<PlayerEndData> ExtractPlayerResults(string stateJson, string gameId)
     {
@@ -518,9 +522,14 @@ public class GameService
 
             return players.Select((p, idx) =>
             {
-                var playerId = p.TryGetProperty("id", out var idProp)
-                    ? idProp.GetString() ?? $"player-{idx}"
-                    : $"player-{idx}";
+                // Prefer userId (real Better Auth ID) over id (game-scoped "player-{i}")
+                // userId is present for lobby games; absent or null for hot-seat/legacy games.
+                var playerId = p.TryGetProperty("userId", out var userIdProp) &&
+                               userIdProp.ValueKind == JsonValueKind.String
+                    ? userIdProp.GetString() ?? $"player-{idx}"
+                    : p.TryGetProperty("id", out var idProp)
+                        ? idProp.GetString() ?? $"player-{idx}"
+                        : $"player-{idx}";
 
                 var score = scores[idx];
                 var won = score == maxScore;

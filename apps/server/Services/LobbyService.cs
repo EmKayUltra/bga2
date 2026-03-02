@@ -287,8 +287,10 @@ public class LobbyService
             return new StartGameResult(false, null, $"Need at least {table.MinPlayers} players to start");
 
         // Create the game session via GameService
+        // Pass real Better Auth user IDs so match results are recorded against actual user profiles.
         var playerNames = players.Select(p => p.DisplayName).ToArray();
-        var gameResponse = await _gameService.CreateGame(table.GameId, playerNames);
+        var userIds = players.Select(p => p.UserId).ToArray();
+        var gameResponse = await _gameService.CreateGame(table.GameId, playerNames, userIds);
 
         // Update table to Playing state with the new session ID
         table.Status = TableStatus.Playing;

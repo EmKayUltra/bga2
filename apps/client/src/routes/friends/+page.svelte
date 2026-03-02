@@ -10,6 +10,7 @@
 	 *   - Auth guard: redirects to /auth/login if not authenticated
 	 */
 	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { authClient } from '$lib/auth-client';
 	import { getAvatarEmoji } from '$lib/avatars.js';
@@ -193,7 +194,7 @@
 	onDestroy(() => {
 		if (pollInterval) clearInterval(pollInterval);
 		if (debounceTimer) clearTimeout(debounceTimer);
-		document.removeEventListener('visibilitychange', handleVisibilityChange);
+		if (browser) document.removeEventListener('visibilitychange', handleVisibilityChange);
 	});
 
 	// ── Derived ───────────────────────────────────────────────────────────────

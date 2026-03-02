@@ -29,6 +29,7 @@ builder.Services.AddScoped<GameService>();
 builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<InviteService>();
+builder.Services.AddSingleton<ChatFilter>();
 
 // ─── JWT Bearer authentication ────────────────────────────────────────────────
 // Better Auth exposes JWKS at /api/auth/jwks (via jwt plugin).
@@ -158,6 +159,9 @@ app.MapFriendEndpoints();
 
 // Invite endpoints (POST /invites, GET /invites/{token}/validate)
 app.MapInviteEndpoints();
+
+// Chat endpoints (POST /chat/{channelId}/send, /chat/{channelId}/report)
+app.MapChatEndpoints();
 
 // ─── Startup ───────────────────────────────────────────────────────────────────
 app.Logger.LogInformation("BGA2 Server starting on {Url}", "http://0.0.0.0:8080");

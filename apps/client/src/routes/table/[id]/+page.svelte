@@ -10,6 +10,7 @@
 		type TableDetail,
 	} from '$lib/api/lobbyApi.js';
 	import { createInviteLink } from '$lib/api/friendApi.js';
+	import ChatPanel from '$lib/components/ChatPanel.svelte';
 
 	// ── Session ──────────────────────────────────────────────────────────────
 	const session = authClient.useSession();
@@ -34,6 +35,11 @@
 	// ── Derived ──────────────────────────────────────────────────────────────
 
 	let currentUserId = $derived($session?.data?.user?.id ?? null);
+	let currentUsername = $derived(
+		($session?.data?.user as { username?: string } | null | undefined)?.username
+		?? $session?.data?.user?.name
+		?? 'Player'
+	);
 	let isHost = $derived(table != null && currentUserId != null && table.hostUserId === currentUserId);
 	let canStart = $derived(table != null && table.players.length >= table.minPlayers);
 
@@ -175,11 +181,15 @@
 			</ul>
 		</section>
 
-		<!-- Chat placeholder -->
+		<!-- Chat -->
 		<section class="chat-section">
 			<h2 class="section-title">Chat</h2>
-			<div class="chat-placeholder">
-				<p>Chat will be available in a future update.</p>
+			<div class="chat-panel-wrapper">
+				<ChatPanel
+					channelId={tableId}
+					currentUserId={currentUserId ?? ''}
+					currentUsername={currentUsername}
+				/>
 			</div>
 		</section>
 
@@ -424,20 +434,12 @@
 		color: #64748b;
 	}
 
-	/* ── Chat placeholder ── */
+	/* ── Chat panel wrapper in waiting room ── */
 
-	.chat-placeholder {
-		padding: 1.5rem;
-		background: #f8fafc;
-		border: 1px dashed #cbd5e1;
+	.chat-panel-wrapper {
+		height: 320px;
 		border-radius: 8px;
-		text-align: center;
-		color: #94a3b8;
-	}
-
-	.chat-placeholder p {
-		margin: 0;
-		font-size: 0.9375rem;
+		overflow: hidden;
 	}
 
 	/* ── Actions ── */

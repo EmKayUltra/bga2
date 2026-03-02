@@ -1,10 +1,11 @@
 /**
  * appsync — Amplify Events configuration and subscription helpers.
  *
- * Provides real-time game state synchronization via AppSync Events WebSocket.
+ * Provides real-time game state synchronization and chat via AppSync Events WebSocket.
  * When AppSync is not configured (no env vars), all functions degrade gracefully:
  *   - configureAppSync() logs a warning and returns
  *   - subscribeToGame() returns null (no subscription)
+ *   - subscribeToChatChannel() returns null (no chat subscription)
  *   - The game falls back to REST polling (page refresh to see opponent moves)
  *
  * IMPORTANT: All Amplify code MUST run ONLY in the browser — inside onMount or
@@ -14,7 +15,8 @@
  * Lifecycle:
  *   1. configureAppSync() — call once on mount (idempotent via `configured` flag)
  *   2. subscribeToGame(sessionId, onStateUpdate) — returns a cleanup fn or null
- *   3. Call the cleanup fn in onDestroy to close the WebSocket channel
+ *   3. subscribeToChatChannel(channelId, onMessage) — returns a cleanup fn or null
+ *   4. Call the cleanup fn in onDestroy to close the WebSocket channel
  */
 
 import { Amplify } from 'aws-amplify';
@@ -109,6 +111,74 @@ export async function subscribeToGame(
     };
   } catch (err) {
     console.error('[AppSync] Failed to subscribe:', err);
+    return null;
+  }
+}
+
+/**
+ * Chat message payload received from AppSync Events /game/{channelId}/chat channel.
+ * Published by the server after filtering the message for profanity.
+ */
+export interface ChatMessage {
+  userId: string;
+  username: string;
+  message: string;
+  timestamp: string;
+}
+
+/**
+ * Subscribe to the chat channel for a given session or table.
+ *
+ * The callback is called whenever the server publishes a new chat message to
+ * the channel. The channelId is the sessionId (game) or tableId (waiting room).
+ *
+ * @param channelId - The session UUID or table UUID
+ * @param onMessage - Callback called with each ChatMessage received
+ * @returns Cleanup function to close the channel subscription, or null if AppSync
+ *          is not configured (graceful degradation).
+ */
+export async function subscribeToChatChannel(
+  channelId: string,
+  onMessage: (msg: ChatMessage) => void,
+): Promise<(() => void) | null> {
+  if (!configured) {
+    console.info('[AppSync] Skipping chat subscription — not configured');
+    return null;
+  }
+
+  try {
+    const channel = await events.connect(`/game/${channelId}/chat`);
+
+    channel.subscribe({
+      next: (data: Record<string, unknown>) => {
+        try {
+          const parsed = typeof data['event'] === 'string'
+            ? (JSON.parse(data['event'] as string) as ChatMessage)
+            : (data['event'] as ChatMessage | undefined);
+
+          if (parsed?.userId !== undefined && parsed?.message !== undefined) {
+            console.debug(`[AppSync] Chat message from ${parsed.username} on channel ${channelId}`);
+            onMessage(parsed);
+          } else {
+            console.warn('[AppSync] Received malformed chat event payload:', data);
+          }
+        } catch (err) {
+          console.error('[AppSync] Failed to parse chat event payload:', err, data);
+        }
+      },
+      error: (err: unknown) => {
+        console.error('[AppSync] Chat subscription error:', err);
+      },
+    });
+
+    console.info(`[AppSync] Subscribed to /game/${channelId}/chat`);
+
+    return () => {
+      console.info(`[AppSync] Closing chat subscription for channel ${channelId}`);
+      channel.close();
+    };
+  } catch (err) {
+    console.error('[AppSync] Failed to subscribe to chat channel:', err);
     return null;
   }
 }

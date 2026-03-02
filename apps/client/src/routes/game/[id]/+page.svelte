@@ -20,6 +20,7 @@
 	import type { GameState } from '@bga2/shared-types';
 	import type { GameStateResponse } from '$lib/api/gameApi.js';
 	import DevMenu from '$lib/components/DevMenu.svelte';
+	import ChatPanel from '$lib/components/ChatPanel.svelte';
 	import { sendFriendRequest } from '$lib/api/friendApi.js';
 	import { authClient } from '$lib/auth-client';
 
@@ -67,6 +68,10 @@
 	// Post-game friend prompt state: tracks request status per player name
 	let friendRequestStatus = $state<Record<string, 'idle' | 'loading' | 'sent' | 'error'>>({});
 	let currentUserName = $state<string | null>(null);
+	let currentUserId = $state<string | null>(null);
+
+	// Chat panel toggle
+	let chatVisible = $state(true);
 
 	// Floor overflow preference (opt-in; stored in localStorage)
 	let floorOverflowWarning = $state(false);
@@ -217,6 +222,7 @@
 		try {
 			const session = await authClient.getSession();
 			currentUserName = session?.data?.user?.name ?? null;
+			currentUserId = session?.data?.user?.id ?? null;
 		} catch {
 			// Not logged in — post-game prompt won't show
 		}
@@ -382,6 +388,29 @@
 	<button class="reconnect-button" onclick={() => window.location.reload()}>
 		Refresh
 	</button>
+</div>
+{/if}
+
+<!-- Chat panel — collapsible side panel, shown when game is loaded and session is available -->
+{#if !loading && !errorMessage && gameState.sessionId}
+<div class="chat-wrapper" class:chat-visible={chatVisible}>
+	<button
+		class="chat-toggle"
+		onclick={() => { chatVisible = !chatVisible; }}
+		aria-pressed={chatVisible}
+		title={chatVisible ? 'Hide chat' : 'Show chat'}
+	>
+		{chatVisible ? 'Hide Chat' : 'Chat'}
+	</button>
+	{#if chatVisible}
+		<div class="chat-panel-container">
+			<ChatPanel
+				channelId={gameState.sessionId}
+				currentUserId={currentUserId ?? ''}
+				currentUsername={currentUserName ?? 'Player'}
+			/>
+		</div>
+	{/if}
 </div>
 {/if}
 
@@ -819,6 +848,50 @@
 
 	.new-game-button:hover {
 		background: #3a7bc8;
+	}
+
+	/* ── Chat panel ── */
+	.chat-wrapper {
+		position: fixed;
+		right: 0;
+		top: 0;
+		bottom: 44px; /* above player info bar */
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		z-index: 150;
+		pointer-events: none;
+	}
+
+	.chat-toggle {
+		pointer-events: all;
+		margin: 0.5rem 0.5rem 0 0;
+		background: rgba(15, 23, 42, 0.92);
+		backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 6px;
+		color: #94a3b8;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.625rem;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.chat-toggle:hover {
+		background: rgba(30, 41, 59, 0.95);
+		color: #e2e8f0;
+	}
+
+	.chat-panel-container {
+		pointer-events: all;
+		width: 280px;
+		flex: 1;
+		margin-right: 0.5rem;
+		margin-bottom: 0.5rem;
+		overflow: hidden;
+		border-radius: 8px;
 	}
 
 	/* ── Post-game friend prompt ── */

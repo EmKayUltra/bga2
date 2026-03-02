@@ -21,6 +21,7 @@ public class GameDbContext : DbContext
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<MatchResult> MatchResults => Set<MatchResult>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<PlayerReport> PlayerReports => Set<PlayerReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -189,6 +190,38 @@ public class GameDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── PlayerReport ─────────────────────────────────────────────────────
+        modelBuilder.Entity<PlayerReport>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.ReporterUserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.ReportedUserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.ChannelId)
+                .HasMaxLength(128);
+
+            entity.Property(e => e.MessageText)
+                .HasMaxLength(1024);
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(512);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            // Index on ReportedUserId for moderation review queries
+            entity.HasIndex(e => e.ReportedUserId);
+
+            // Index on ReporterUserId + CreatedAt for rate limiting
+            entity.HasIndex(e => new { e.ReporterUserId, e.CreatedAt });
         });
     }
 }

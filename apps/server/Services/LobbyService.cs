@@ -14,7 +14,10 @@ public record CreateTableRequest(
     int MinPlayers,
     int MaxPlayers,
     bool IsPrivate,
-    string? Password
+    string? Password,
+    bool IsAsync = false,               // NEW: async game mode
+    string? TimerMode = null,           // NEW: "fast" | "normal" | "slow"
+    int SkipThreshold = 3               // NEW: 0 = disable auto-forfeit
 );
 
 public record TableListItem(
@@ -24,7 +27,9 @@ public record TableListItem(
     string HostName,
     int PlayerCount,
     int MaxPlayers,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsAsync,           // NEW: whether this is an async game
+    string? TimerMode       // NEW: "fast" | "normal" | "slow" | null
 );
 
 public record TablePlayerInfo(
@@ -74,9 +79,22 @@ public class LobbyService
 
     /// <summary>
     /// Create a new table. Host is automatically added as seat 0 (ready).
+    /// Validates async mode parameters if IsAsync is true.
+    /// Returns null and an error message if validation fails.
     /// </summary>
-    public async Task<GameTable> CreateTable(string userId, string displayName, CreateTableRequest req)
+    public async Task<(GameTable? Table, string? Error)> CreateTable(string userId, string displayName, CreateTableRequest req)
     {
+        // Validate async parameters
+        if (req.IsAsync)
+        {
+            var validModes = new[] { "fast", "normal", "slow" };
+            if (req.TimerMode == null || !Array.Exists(validModes, m => m == req.TimerMode))
+                return (null, "Async games require a valid timer mode: 'fast', 'normal', or 'slow'");
+
+            if (req.SkipThreshold < 0)
+                return (null, "Skip threshold must be >= 0");
+        }
+
         var table = new GameTable
         {
             Id = Guid.NewGuid(),
@@ -88,6 +106,9 @@ public class LobbyService
             IsPrivate = req.IsPrivate,
             PasswordHash = req.Password != null ? HashPassword(req.Password) : null,
             Status = TableStatus.Waiting,
+            IsAsync = req.IsAsync,
+            TimerMode = req.IsAsync ? req.TimerMode : null,
+            SkipThreshold = req.IsAsync ? req.SkipThreshold : 0,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
@@ -109,8 +130,8 @@ public class LobbyService
 
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Created table {TableId} '{DisplayName}' by user {UserId}", table.Id, table.DisplayName, userId);
-        return table;
+        _logger.LogInformation("Created table {TableId} '{DisplayName}' by user {UserId} (async={IsAsync})", table.Id, table.DisplayName, userId, table.IsAsync);
+        return (table, null);
     }
 
     /// <summary>
@@ -144,7 +165,9 @@ public class LobbyService
                 HostName: host?.DisplayName ?? "Unknown",
                 PlayerCount: players.Count,
                 MaxPlayers: t.MaxPlayers,
-                CreatedAt: t.CreatedAt
+                CreatedAt: t.CreatedAt,
+                IsAsync: t.IsAsync,
+                TimerMode: t.TimerMode
             );
         }).ToList();
     }
@@ -297,6 +320,13 @@ public class LobbyService
         table.SessionId = gameResponse.SessionId;
         table.UpdatedAt = DateTime.UtcNow;
 
+        // For async tables, set the initial TurnDeadline based on the timer preset
+        if (table.IsAsync && table.TimerMode != null)
+        {
+            var hours = table.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
+            table.TurnDeadline = DateTime.UtcNow.AddHours(hours);
+        }
+
         await _db.SaveChangesAsync();
 
         _logger.LogInformation(
@@ -336,7 +366,7 @@ public class LobbyService
             }
         }
 
-        // No available table — create a new public one
+        // No available table — create a new public real-time one (Quick Play is always real-time)
         var req = new CreateTableRequest(
             GameId: gameId,
             DisplayName: $"{displayName}'s Table",
@@ -345,9 +375,9 @@ public class LobbyService
             IsPrivate: false,
             Password: null
         );
-        var newTable = await CreateTable(userId, displayName, req);
+        var (newTable, _) = await CreateTable(userId, displayName, req);
 
-        _logger.LogInformation("Quick Play: user {UserId} created new table {TableId}", userId, newTable.Id);
+        _logger.LogInformation("Quick Play: user {UserId} created new table {TableId}", userId, newTable!.Id);
         return new QuickPlayResult(Joined: false, Created: true, TableId: newTable.Id);
     }
 

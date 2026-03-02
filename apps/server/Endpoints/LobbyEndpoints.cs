@@ -77,8 +77,11 @@ public static class LobbyEndpoints
         if (userId == null)
             return Results.Unauthorized();
 
-        var table = await lobbyService.CreateTable(userId, displayName, req);
-        return Results.Created($"/tables/{table.Id}", new { id = table.Id });
+        var (table, error) = await lobbyService.CreateTable(userId, displayName, req);
+        if (error != null)
+            return Results.BadRequest(new { error });
+
+        return Results.Created($"/tables/{table!.Id}", new { id = table.Id });
     }
 
     private static async Task<IResult> JoinTable(

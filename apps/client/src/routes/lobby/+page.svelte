@@ -26,6 +26,9 @@
 	let createMaxPlayers = $state(4);
 	let createIsPrivate = $state(false);
 	let createPassword = $state('');
+	let createIsAsync = $state(false);
+	let createTimerMode = $state<'fast' | 'normal' | 'slow'>('normal');
+	let createSkipThreshold = $state(3);
 	let createError = $state<string | null>(null);
 	let createLoading = $state(false);
 
@@ -76,6 +79,9 @@
 				maxPlayers: createMaxPlayers,
 				isPrivate: createIsPrivate,
 				password: createIsPrivate && createPassword ? createPassword : undefined,
+				isAsync: createIsAsync,
+				timerMode: createIsAsync ? createTimerMode : undefined,
+				skipThreshold: createIsAsync ? createSkipThreshold : undefined,
 			};
 			const result = await createTable(req);
 			await goto(`/table/${result.id}`);
@@ -166,9 +172,19 @@
 				{#each tables as table (table.id)}
 					<li class="table-card">
 						<div class="table-info">
-							<span class="table-name">{table.displayName}</span>
+							<span class="table-name">
+								{table.displayName}
+								{#if table.isAsync}
+									<span class="async-badge" title="Async game — {table.timerMode === 'fast' ? '12h' : table.timerMode === 'slow' ? '72h' : '24h'}/turn">
+										Async
+									</span>
+								{/if}
+							</span>
 							<span class="table-meta">
 								{table.gameId} &bull; hosted by {table.hostName} &bull; {formatAge(table.createdAt)}
+								{#if table.isAsync && table.timerMode}
+									&bull; {table.timerMode === 'fast' ? '12h' : table.timerMode === 'slow' ? '72h' : '24h'}/turn
+								{/if}
 							</span>
 						</div>
 						<div class="table-right">
@@ -269,6 +285,84 @@
 						placeholder="Leave blank for no password"
 						disabled={createLoading}
 					/>
+				</div>
+			{/if}
+
+			<div class="field">
+				<label class="label">Game mode</label>
+				<div class="mode-toggle">
+					<button
+						type="button"
+						class="mode-btn"
+						class:mode-btn-active={!createIsAsync}
+						onclick={() => (createIsAsync = false)}
+						disabled={createLoading}
+					>
+						Real-time
+					</button>
+					<button
+						type="button"
+						class="mode-btn"
+						class:mode-btn-active={createIsAsync}
+						onclick={() => (createIsAsync = true)}
+						disabled={createLoading}
+					>
+						Async
+					</button>
+				</div>
+			</div>
+
+			{#if createIsAsync}
+				<div class="field">
+					<label class="label">Time per turn</label>
+					<div class="timer-preset-row">
+						<button
+							type="button"
+							class="timer-btn"
+							class:timer-btn-active={createTimerMode === 'fast'}
+							onclick={() => (createTimerMode = 'fast')}
+							disabled={createLoading}
+						>
+							Fast<br /><span class="timer-hint">12h</span>
+						</button>
+						<button
+							type="button"
+							class="timer-btn"
+							class:timer-btn-active={createTimerMode === 'normal'}
+							onclick={() => (createTimerMode = 'normal')}
+							disabled={createLoading}
+						>
+							Normal<br /><span class="timer-hint">24h</span>
+						</button>
+						<button
+							type="button"
+							class="timer-btn"
+							class:timer-btn-active={createTimerMode === 'slow'}
+							onclick={() => (createTimerMode = 'slow')}
+							disabled={createLoading}
+						>
+							Slow<br /><span class="timer-hint">72h</span>
+						</button>
+					</div>
+				</div>
+
+				<div class="field">
+					<label class="label" for="skip-threshold">
+						Auto-forfeit after
+						<span class="threshold-hint">
+							{createSkipThreshold === 0 ? '(disabled)' : `${createSkipThreshold} consecutive skips`}
+						</span>
+					</label>
+					<input
+						id="skip-threshold"
+						type="number"
+						class="input"
+						bind:value={createSkipThreshold}
+						min="0"
+						max="10"
+						disabled={createLoading}
+					/>
+					<span class="field-hint">Set 0 to disable auto-forfeit</span>
 				</div>
 			{/if}
 
@@ -607,6 +701,117 @@
 		gap: 0.75rem;
 		justify-content: flex-end;
 		margin-top: 0.5rem;
+	}
+
+	/* ── Async badge (table list) ── */
+
+	.async-badge {
+		display: inline-block;
+		margin-left: 0.375rem;
+		padding: 0.1rem 0.4rem;
+		background: #ede9fe;
+		color: #6d28d9;
+		border: 1px solid #c4b5fd;
+		border-radius: 4px;
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.03em;
+		vertical-align: middle;
+		line-height: 1.4;
+	}
+
+	/* ── Game mode toggle ── */
+
+	.mode-toggle {
+		display: flex;
+		border: 1px solid #d1d5db;
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.mode-btn {
+		flex: 1;
+		padding: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		font-family: inherit;
+		background: #f9fafb;
+		color: #6b7280;
+		border: none;
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.mode-btn + .mode-btn {
+		border-left: 1px solid #d1d5db;
+	}
+
+	.mode-btn-active {
+		background: #2563eb;
+		color: #ffffff;
+	}
+
+	.mode-btn:disabled {
+		opacity: 0.65;
+		cursor: not-allowed;
+	}
+
+	/* ── Timer presets ── */
+
+	.timer-preset-row {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.timer-btn {
+		flex: 1;
+		padding: 0.5rem 0.25rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		font-family: inherit;
+		text-align: center;
+		background: #f9fafb;
+		color: #374151;
+		border: 1px solid #d1d5db;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: background 0.15s, border-color 0.15s, color 0.15s;
+		line-height: 1.3;
+	}
+
+	.timer-btn:hover:not(:disabled) {
+		background: #ede9fe;
+		border-color: #c4b5fd;
+		color: #6d28d9;
+	}
+
+	.timer-btn-active {
+		background: #6d28d9;
+		border-color: #6d28d9;
+		color: #ffffff;
+	}
+
+	.timer-btn:disabled {
+		opacity: 0.65;
+		cursor: not-allowed;
+	}
+
+	.timer-hint {
+		font-size: 0.75rem;
+		font-weight: 400;
+		opacity: 0.85;
+	}
+
+	.threshold-hint {
+		font-size: 0.75rem;
+		color: #6b7280;
+		font-weight: 400;
+	}
+
+	.field-hint {
+		font-size: 0.75rem;
+		color: #9ca3af;
+		margin-top: 0.125rem;
 	}
 
 	/* ── Spinner ── */

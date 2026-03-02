@@ -90,13 +90,14 @@ Plans:
   2. When it becomes a player's turn in an async game, they receive an email notification; escalating reminders fire at 48h, 24h, and final hour before a deadline
   3. A player who has installed the PWA receives a Web Push notification when it is their turn, even when the browser is closed
   4. A player can configure their notification preferences (immediate vs. daily digest, per-game opt-out) and those preferences are respected by all notification channels
-**Plans:** 3/4 plans executed
+**Plans:** 5 plans
 
 Plans:
 - [x] 04-01-PLAN.md -- Async game mode foundation (GameTable extensions, Hangfire, notification entities, lobby async support)
-- [ ] 04-02-PLAN.md -- Notification pipeline (NotificationService, DeadlineService, email via Resend, GameService integration)
-- [ ] 04-03-PLAN.md -- Web Push (injectManifest service worker, push subscription, VAPID, notification endpoints)
-- [ ] 04-04-PLAN.md -- UI integration (notification preferences, lobby filter + My Games, timer countdown, pause flow, verification)
+- [x] 04-02-PLAN.md -- Notification pipeline (NotificationService, DeadlineService, email via Resend, GameService integration)
+- [x] 04-03-PLAN.md -- Web Push (injectManifest service worker, push subscription, VAPID, notification endpoints)
+- [x] 04-04-PLAN.md -- UI integration (notification preferences, lobby filter + My Games, timer countdown, pause flow, verification)
+- [ ] 04-05-PLAN.md -- Gap closure: unlimited timer, escalating reminders, digest mode + per-game opt-out (MULT-02, NOTF-02, NOTF-04)
 
 ### Phase 5: AI Game Creation Toolkit
 **Goal**: A game designer can feed a rulebook and art assets into a local C# tool and receive a deployable game package that runs on the BGA2 engine — validated by using it to ship a second game
@@ -131,10 +132,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from 
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
-| 4. Async + Notifications | 3/4 | In Progress|  |
+| 4. Async + Notifications | 4/5 | In Progress|  |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-02 — Phase 4 planned: 4 plans in 3 waves*
+*Last updated: 2026-03-02 — Phase 4 gap closure plan added: 5 plans total*

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Bga2.Server.Models;
 using Bga2.Server.Services;
 using Microsoft.AspNetCore.Builder;
@@ -21,10 +22,11 @@ public static class GameEndpoints
             .WithName("CreateGame")
             .WithSummary("Create a new game session");
 
-        // POST /games/{sessionId}/move — validate and apply a player move
+        // POST /games/{sessionId}/move — validate and apply a player move (requires auth)
         games.MapPost("/{sessionId:guid}/move", ValidateAndApplyMove)
             .WithName("ValidateAndApplyMove")
-            .WithSummary("Validate a move and apply it to the game state if legal");
+            .WithSummary("Validate a move and apply it to the game state if legal")
+            .RequireAuthorization();
 
         // GET /games/{sessionId}/state — get current game state + valid moves
         games.MapGet("/{sessionId:guid}/state", GetGameState)
@@ -45,8 +47,13 @@ public static class GameEndpoints
     private static async Task<IResult> ValidateAndApplyMove(
         Guid sessionId,
         MoveRequest move,
-        GameService gameService)
+        GameService gameService,
+        HttpContext httpContext)
     {
+        // Extract authenticated user's ID from JWT claims for future player identity validation
+        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.User.FindFirst("sub")?.Value;
+
         var result = await gameService.ValidateAndApplyMove(sessionId, move);
 
         var response = new MoveResponse(

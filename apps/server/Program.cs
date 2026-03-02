@@ -1,10 +1,12 @@
 using Bga2.Server.Data;
 using Bga2.Server.Endpoints;
 using Bga2.Server.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,26 @@ builder.Services.AddDbContext<GameDbContext>(opts =>
 // ─── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<HookExecutor>();
 builder.Services.AddScoped<GameService>();
+
+// ─── JWT Bearer authentication ────────────────────────────────────────────────
+// Better Auth exposes JWKS at /api/auth/jwks (via jwt plugin).
+// The JwtBearer middleware fetches public keys from JWKS to validate tokens.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Better Auth JWKS endpoint — uses Docker service name in dev
+        options.Authority = "http://client:5173/api/auth";
+        options.RequireHttpsMetadata = false; // Docker dev only — no HTTPS in container network
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,   // Better Auth JWT may not set standard issuer
+            ValidateAudience = false, // Skip audience check in dev — validate signature only
+            ValidateLifetime = true,
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // ─── API infrastructure ────────────────────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
@@ -49,6 +71,9 @@ var app = builder.Build();
 // Ensure the DB schema exists — creates tables if they don't exist.
 // EnsureCreated is appropriate for development/prototype; will be replaced with
 // proper migrations before production deployment.
+// NOTE: Better Auth tables (user, session, account, verification, jwks) are managed
+// exclusively by @better-auth/cli migrate — NOT by this EnsureCreated call.
+// GameDbContext does NOT include those entities to avoid conflicts.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<GameDbContext>();
@@ -63,6 +88,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("DevCors");
+
+// Authentication and Authorization must be added BEFORE endpoint mapping
+app.UseAuthentication();
+app.UseAuthorization();
 
 // ─── Endpoints ─────────────────────────────────────────────────────────────────
 

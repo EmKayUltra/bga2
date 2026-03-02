@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 3 in progress — Plans 01-02 complete, Plans 03-05 remain
+**Current focus:** Phase 3 in progress — Plans 01-03 complete, Plans 04-05 remain
 
 ## Current Position
 
 Phase: 3 of 6 — IN PROGRESS (Multiplayer + Social)
-Plans: 2/5 complete (03-01: Auth + entity scaffolding, 03-02: Lobby)
-Status: Phase 3 in progress. Plans 01-02 complete. Next: Plan 03 (Match History)
-Last activity: 2026-03-02 — Completed 03-02: Lobby system (table CRUD, waiting room, Quick Play)
+Plans: 3/5 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History)
+Status: Phase 3 in progress. Plans 01-03 complete. Next: Plan 04 (Real-time)
+Last activity: 2026-03-02 — Completed 03-03: User profiles, avatar selection, match history, settings page
 
 Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 
@@ -42,7 +42,7 @@ Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
-| 03-multiplayer-social | 2/5 | ~25 min | 12.5 min |
+| 03-multiplayer-social | 3/5 | ~35 min | 11.7 min |
 
 ## Accumulated Context
 
@@ -78,6 +78,10 @@ Recent decisions affecting current work:
 - [Phase 03-02]: SHA-256 for table passwords (not BCrypt) — table join guards are low-stakes, BCrypt overkill
 - [Phase 03-02]: JWT token cached 30s in lobbyApi.ts to avoid per-poll /api/auth/token requests
 - [Phase 03-02]: idempotent JoinTable — already-joined user returns success (prevents duplicate constraint on TableId+UserId index)
+- [Phase 03-03]: UserProfile stored as extension entity (not Better Auth user table) — avatar/isPublic/usernameChangedAt stored in C# entity; Better Auth owns user/username/id
+- [Phase 03-03]: Username updates use raw SQL against Better Auth's user table directly (no Better Auth admin API for username changes)
+- [Phase 03-03]: Match results currently recorded with game-scoped player IDs ("player-0" etc.) — real userId mapping needs lobby plan integration
+- [Phase 03-03]: Username cooldown → 429 with retryAfterDays in JSON body; username taken → 409 Conflict
 
 ### Pending Todos
 
@@ -113,5 +117,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-02-PLAN.md — Lobby system: table CRUD API, polling lobby page, waiting room.
-Resume file: none — ready for Plan 03 (Match History)
+Stopped at: Completed 03-03-PLAN.md — User profiles, avatar selection, match history, settings page.
+Resume file: none — ready for Plan 04 (Real-time)

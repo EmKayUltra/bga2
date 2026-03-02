@@ -13,9 +13,13 @@
  * Auth: Better Auth JWT token fetched from /api/auth/token and cached for 30s.
  */
 
+import { browser } from '$app/environment';
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE = browser
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080')
+  : (import.meta.env.API_SERVER_URL || 'http://server:8080');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

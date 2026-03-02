@@ -11,10 +11,13 @@
  */
 
 import type { Move, ValidMove, MoveResult, GameState } from '@bga2/shared-types';
+import { browser } from '$app/environment';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE = browser
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080')
+  : (import.meta.env.API_SERVER_URL || 'http://server:8080');
 
 // ─── Auth token cache ─────────────────────────────────────────────────────────
 

@@ -820,4 +820,78 @@
 	.new-game-button:hover {
 		background: #3a7bc8;
 	}
+
+	/* ── Post-game friend prompt ── */
+	.friend-prompt {
+		width: 100%;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+		padding-top: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+	}
+
+	.friend-prompt-label {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.8125rem;
+		color: #64748b;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin: 0;
+	}
+
+	.friend-prompt-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.friend-prompt-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.friend-prompt-name {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.9375rem;
+		color: #e2e8f0;
+		font-weight: 500;
+	}
+
+	.friend-prompt-sent {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.8125rem;
+		color: #4ade80;
+		font-weight: 600;
+	}
+
+	.friend-prompt-error {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.8125rem;
+		color: #f87171;
+	}
+
+	.btn-add-friend {
+		background: rgba(96, 165, 250, 0.15);
+		border: 1px solid rgba(96, 165, 250, 0.3);
+		border-radius: 6px;
+		color: #60a5fa;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		padding: 0.3125rem 0.875rem;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.btn-add-friend:hover:not(:disabled) {
+		background: rgba(96, 165, 250, 0.25);
+	}
+
+	.btn-add-friend:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
 </style>

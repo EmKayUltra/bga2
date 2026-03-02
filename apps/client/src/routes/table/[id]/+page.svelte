@@ -9,6 +9,7 @@
 		leaveTable,
 		type TableDetail,
 	} from '$lib/api/lobbyApi.js';
+	import { createInviteLink } from '$lib/api/friendApi.js';
 
 	// ── Session ──────────────────────────────────────────────────────────────
 	const session = authClient.useSession();
@@ -26,6 +27,9 @@
 	let startError = $state<string | null>(null);
 
 	let leaveLoading = $state(false);
+
+	let copyLinkLoading = $state(false);
+	let copyLinkToast = $state(false);
 
 	// ── Derived ──────────────────────────────────────────────────────────────
 
@@ -88,6 +92,21 @@
 		} catch {
 			// Leave is best-effort — navigate anyway
 			await goto('/lobby');
+		}
+	}
+
+	async function handleCopyInviteLink() {
+		copyLinkLoading = true;
+		try {
+			const link = await createInviteLink(tableId);
+			await navigator.clipboard.writeText(link);
+			copyLinkToast = true;
+			setTimeout(() => { copyLinkToast = false; }, 2500);
+		} catch {
+			// Clipboard write may fail in non-HTTPS or if permission denied
+			// Silently ignore — the user can try again
+		} finally {
+			copyLinkLoading = false;
 		}
 	}
 </script>
@@ -189,6 +208,21 @@
 				<p class="error-message" role="alert">{startError}</p>
 			{/if}
 
+			<!-- Copy Invite Link — visible to all players in the waiting room -->
+			<button
+				class="btn btn-secondary"
+				onclick={handleCopyInviteLink}
+				disabled={copyLinkLoading}
+				title="Copy invite link to clipboard"
+			>
+				{#if copyLinkLoading}
+					<span class="spinner spinner-dark" aria-hidden="true"></span>
+					Copying...
+				{:else}
+					Copy Invite Link
+				{/if}
+			</button>
+
 			<button class="btn btn-secondary" onclick={handleLeave} disabled={leaveLoading}>
 				{#if leaveLoading}
 					Leaving...
@@ -199,6 +233,12 @@
 		</div>
 	{/if}
 </main>
+
+{#if copyLinkToast}
+	<div class="invite-toast" role="status" aria-live="polite">
+		Link copied to clipboard!
+	</div>
+{/if}
 
 <style>
 	.waiting-room {
@@ -487,6 +527,34 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	/* Dark variant spinner for light-background buttons */
+	.spinner-dark {
+		border-color: rgba(0, 0, 0, 0.2);
+		border-top-color: #374151;
+	}
+
+	/* ── Invite link toast ── */
+	.invite-toast {
+		position: fixed;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: #0f172a;
+		color: #e2e8f0;
+		padding: 0.625rem 1.25rem;
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		z-index: 500;
+		white-space: nowrap;
+		animation: toast-in 0.2s ease-out;
+	}
+
+	@keyframes toast-in {
+		from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+		to { opacity: 1; transform: translateX(-50%) translateY(0); }
 	}
 
 	/* ── Mobile ── */

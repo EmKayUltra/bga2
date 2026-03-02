@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { createGame, saveRecentGame } from '$lib/api/gameApi.js';
+	import { authClient } from '$lib/auth-client';
+
+	// ── Session ──────────────────────────────────────────────────────────────
+
+	const session = authClient.useSession();
 
 	// ── State ──────────────────────────────────────────────────────────────────
 
@@ -63,8 +68,27 @@
 			<p class="tagline">Play board games online</p>
 		</header>
 
+		<!-- Lobby CTA for logged-in users -->
+		{#if $session?.data?.user}
+			<section class="lobby-cta">
+				<div class="lobby-cta-text">
+					<h2 class="cta-title">Find a Game</h2>
+					<p class="cta-subtitle">Browse open tables or jump straight in with Quick Play</p>
+				</div>
+				<a href="/lobby" class="lobby-button">Go to Lobby</a>
+			</section>
+		{:else}
+			<section class="auth-cta">
+				<p class="auth-cta-text">Sign in to play online with others</p>
+				<div class="auth-cta-actions">
+					<a href="/auth/login" class="btn-link btn-link--primary">Sign in</a>
+					<a href="/auth/register" class="btn-link">Register</a>
+				</div>
+			</section>
+		{/if}
+
 		<section class="new-game-section" aria-labelledby="new-game-heading">
-			<h2 id="new-game-heading" class="section-title">Start New Azul Game</h2>
+			<h2 id="new-game-heading" class="section-title">Start Local Game</h2>
 
 			<div class="field">
 				<label for="player-count" class="label">Number of players</label>
@@ -306,6 +330,113 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	/* ── Lobby CTA ── */
+
+	.lobby-cta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
+		border-radius: 12px;
+		padding: 1.25rem 1.5rem;
+		flex-wrap: wrap;
+	}
+
+	.lobby-cta-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.cta-title {
+		font-size: 1.0625rem;
+		font-weight: 700;
+		color: #1e40af;
+		margin: 0;
+	}
+
+	.cta-subtitle {
+		font-size: 0.875rem;
+		color: #3b82f6;
+		margin: 0;
+	}
+
+	.lobby-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.625rem 1.25rem;
+		background: #2563eb;
+		color: #ffffff;
+		border-radius: 8px;
+		font-size: 0.9375rem;
+		font-weight: 600;
+		text-decoration: none;
+		transition: background 0.15s;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	.lobby-button:hover {
+		background: #1d4ed8;
+	}
+
+	/* ── Auth CTA ── */
+
+	.auth-cta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		border-radius: 12px;
+		padding: 1.25rem 1.5rem;
+		flex-wrap: wrap;
+	}
+
+	.auth-cta-text {
+		font-size: 0.9375rem;
+		color: #475569;
+		margin: 0;
+	}
+
+	.auth-cta-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-shrink: 0;
+	}
+
+	.btn-link {
+		display: inline-flex;
+		padding: 0.5rem 1rem;
+		border-radius: 7px;
+		font-size: 0.875rem;
+		font-weight: 600;
+		text-decoration: none;
+		color: #374151;
+		background: #f1f5f9;
+		border: 1px solid #d1d5db;
+		transition: background 0.15s;
+	}
+
+	.btn-link:hover {
+		background: #e2e8f0;
+	}
+
+	.btn-link--primary {
+		background: #2563eb;
+		color: #ffffff;
+		border-color: #2563eb;
+	}
+
+	.btn-link--primary:hover {
+		background: #1d4ed8;
+		border-color: #1d4ed8;
 	}
 
 	/* ── Resume link ── */

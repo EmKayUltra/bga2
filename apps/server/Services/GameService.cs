@@ -17,22 +17,25 @@ namespace Bga2.Server.Services;
 ///   5. If new phase == "wall-tiling", auto-call onRoundEnd
 ///   6. Save updated state with version increment (optimistic locking via xmin)
 ///   7. Execute getValidMoves(newState) for next player's turn
-///   8. Return MoveResult
+///   8. If finished==true, call ProfileService.RecordMatchResults
+///   9. Return MoveResult
 /// </summary>
 public class GameService
 {
     private readonly GameDbContext _db;
     private readonly HookExecutor _hookExecutor;
     private readonly ILogger<GameService> _logger;
+    private readonly ProfileService _profileService;
 
     // Azul tile colors (20 of each = 100 total)
     private static readonly string[] TileColors = ["blue", "yellow", "red", "black", "white"];
 
-    public GameService(GameDbContext db, HookExecutor hookExecutor, ILogger<GameService> logger)
+    public GameService(GameDbContext db, HookExecutor hookExecutor, ILogger<GameService> logger, ProfileService profileService)
     {
         _db = db;
         _hookExecutor = hookExecutor;
         _logger = logger;
+        _profileService = profileService;
     }
 
     /// <summary>
@@ -247,7 +250,26 @@ public class GameService
             return new MoveResult(false, Errors: ["Game state was modified concurrently — please retry your move"]);
         }
 
-        // Step 6: Get valid moves for next turn (next player's legal moves)
+        // Step 6: If game finished, record match results for all players
+        if (IsGameFinished(newStateJson))
+        {
+            try
+            {
+                var playerResults = ExtractPlayerResults(newStateJson, session.GameId);
+                if (playerResults.Count > 0)
+                {
+                    await _profileService.RecordMatchResults(sessionId, session.GameId, playerResults);
+                    _logger.LogInformation("Match results recorded for finished session {SessionId}", sessionId);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Non-fatal: log but don't fail the move response
+                _logger.LogError(ex, "Failed to record match results for session {SessionId}", sessionId);
+            }
+        }
+
+        // Step 7: Get valid moves for next turn (next player's legal moves)
         var (afterPlayer, afterRound) = ExtractPlayerAndRound(newStateJson);
         var nextValidMoves = _hookExecutor.GetValidMoves(hooksSource, newStateJson, afterPlayer, afterRound);
 
@@ -366,6 +388,81 @@ public class GameService
         catch
         {
             return "";
+        }
+    }
+
+    /// <summary>
+    /// Checks if the game state has finished==true.
+    /// </summary>
+    private static bool IsGameFinished(string stateJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(stateJson);
+            var root = doc.RootElement;
+            return root.TryGetProperty("finished", out var finished) && finished.GetBoolean();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Extracts player results from the finished game state.
+    /// Maps players by index; uses player.id as userId.
+    /// Determines winner by highest score (or Won field if present).
+    /// Returns empty list if players array is missing or malformed.
+    ///
+    /// NOTE: player.id in the state is "player-0", "player-1" etc. (not real user IDs).
+    /// For Phase 3 the game was created without real user IDs attached — we record the
+    /// game-scoped player IDs. When lobby integration (Plan 02) is complete, real user
+    /// IDs will be passed in. This provides the hook but may not link to real profiles yet.
+    /// </summary>
+    private static List<PlayerEndData> ExtractPlayerResults(string stateJson, string gameId)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(stateJson);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("players", out var playersProp) ||
+                playersProp.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var players = playersProp.EnumerateArray().ToList();
+            if (players.Count == 0) return [];
+
+            // Find max score to determine winner(s)
+            var scores = players.Select(p =>
+                p.TryGetProperty("score", out var s) ? s.GetInt32() : 0
+            ).ToList();
+
+            var maxScore = scores.Max();
+
+            return players.Select((p, idx) =>
+            {
+                var playerId = p.TryGetProperty("id", out var idProp)
+                    ? idProp.GetString() ?? $"player-{idx}"
+                    : $"player-{idx}";
+
+                var score = scores[idx];
+                var won = score == maxScore;
+
+                // Rank: count how many players have strictly higher score + 1
+                var rank = scores.Count(s => s > score) + 1;
+
+                return new PlayerEndData(
+                    UserId: playerId,
+                    Score: score,
+                    Rank: rank,
+                    Won: won
+                );
+            }).ToList();
+        }
+        catch
+        {
+            return [];
         }
     }
 }

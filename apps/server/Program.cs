@@ -20,6 +20,7 @@ builder.Services.AddDbContext<GameDbContext>(opts =>
 
 // ─── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<HookExecutor>();
+builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<GameService>();
 builder.Services.AddScoped<LobbyService>();
 
@@ -122,6 +123,9 @@ app.MapDevEndpoints();
 
 // Lobby endpoints (GET/POST /tables, /tables/{id}/join|leave|start, /tables/quick-play)
 app.MapLobbyEndpoints();
+
+// Social endpoints (GET /social/profile/{username}, PUT /social/profile, etc.)
+app.MapSocialEndpoints();
 
 // ─── Startup ───────────────────────────────────────────────────────────────────
 app.Logger.LogInformation("BGA2 Server starting on {Url}", "http://0.0.0.0:8080");

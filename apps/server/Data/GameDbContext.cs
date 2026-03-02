@@ -20,6 +20,7 @@ public class GameDbContext : DbContext
     public DbSet<TablePlayer> TablePlayers => Set<TablePlayer>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<MatchResult> MatchResults => Set<MatchResult>();
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +128,31 @@ public class GameDbContext : DbContext
 
             // Unique: only one friendship record per (requester, addressee) pair
             entity.HasIndex(e => new { e.RequesterId, e.AddresseeId }).IsUnique();
+        });
+
+        // ── UserProfile ──────────────────────────────────────────────────────
+        modelBuilder.Entity<UserProfile>(entity =>
+        {
+            // UserId is PK (references Better Auth user.id)
+            entity.HasKey(e => e.UserId);
+
+            entity.Property(e => e.UserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.Avatar)
+                .HasMaxLength(64)
+                .HasDefaultValue("default")
+                .IsRequired();
+
+            entity.Property(e => e.IsPublic)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("NOW()");
         });
 
         // ── MatchResult ──────────────────────────────────────────────────────

@@ -30,12 +30,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Multiplayer
 
-- [ ] **MULT-01**: Real-time synchronous play via AppSync Events WebSocket
+- [x] **MULT-01**: Real-time synchronous play via AppSync Events WebSocket
 - [ ] **MULT-02**: Async turn-based play with configurable timer presets (fast/normal/slow/unlimited)
 - [x] **MULT-03**: Lobby with open and invite-only table creation
-- [ ] **MULT-04**: Reconnection re-fetches server state before enabling interaction
-- [ ] **MULT-05**: Idempotent move protocol with client-generated UUIDs
-- [ ] **MULT-06**: Optimistic locking with state versioning prevents concurrent update corruption
+- [x] **MULT-04**: Reconnection re-fetches server state before enabling interaction
+- [x] **MULT-05**: Idempotent move protocol with client-generated UUIDs
+- [x] **MULT-06**: Optimistic locking with state versioning prevents concurrent update corruption
 
 ### Social
 
@@ -149,11 +149,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AZUL-04 | Phase 2 | Complete |
 | AZUL-05 | Phase 2 | Complete |
 | PLAT-01 | Phase 2 | Complete |
-| MULT-01 | Phase 3 | Pending |
+| MULT-01 | Phase 3 | Complete |
 | MULT-03 | Phase 3 | Complete |
-| MULT-04 | Phase 3 | Pending |
-| MULT-05 | Phase 3 | Pending |
-| MULT-06 | Phase 3 | Pending |
+| MULT-04 | Phase 3 | Complete |
+| MULT-05 | Phase 3 | Complete |
+| MULT-06 | Phase 3 | Complete |
 | SOCL-01 | Phase 3 | Complete |
 | SOCL-02 | Phase 3 | Complete |
 | SOCL-03 | Phase 3 | Pending |

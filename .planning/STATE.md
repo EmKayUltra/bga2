@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-01T23:59:00.000Z"
+last_updated: "2026-03-02T01:35:05Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 11
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 2 complete — ready for Phase 3 (Multiplayer + Social)
+**Current focus:** Phase 3 in progress — Plan 01 (Auth) complete, Plans 02-05 remain
 
 ## Current Position
 
-Phase: 2 of 6 — COMPLETE (Azul + First Playable)
-Plans: 4/4 complete + verification pass + bug fixes committed
-Status: Phase 2 done. Next: Phase 3 (Multiplayer + Social)
-Last activity: 2026-03-02 — Completed quick task 1: Developer menu for real-time game state manipulation
+Phase: 3 of 6 — IN PROGRESS (Multiplayer + Social)
+Plans: 1/5 complete (03-01: Auth + entity scaffolding)
+Status: Phase 3 started. Plan 01 complete. Next: Plan 02 (Lobby)
+Last activity: 2026-03-02 — Completed 03-01: Better Auth + JWT Bearer + Phase 3 entity scaffolding
 
 Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 
@@ -42,6 +42,7 @@ Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
+| 03-multiplayer-social | 1/5 | ~15 min | 15 min |
 
 ## Accumulated Context
 
@@ -70,6 +71,10 @@ Recent decisions affecting current work:
 - [Phase 02-03]: Server zone IDs are 1-indexed: player-{n}-pattern-line-{row} where n = playerIndex + 1
 - [Phase 02-03]: Score summary reads player.data.wallScore/rowBonus/colBonus/colorBonus/floorPenalty from server hooks — display only, no client-side scoring
 - [Quick-1]: DevEndpoints uses JsonNode.Parse for state mutation — avoids full deserialization into typed models for ad-hoc dev mutations
+- [Phase 03-01]: better-auth 1.5.0 type declarations have internal errors — added skipLibCheck: true to client tsconfig.json to allow builds
+- [Phase 03-01]: hooks.server.ts uses relative import (./lib/auth.js) instead of $lib alias because tsconfig.base.json paths override .svelte-kit/tsconfig.json paths
+- [Phase 03-01]: Better Auth CLI: use @better-auth/cli@1.5.0-beta.13 with --yes --config flags; @latest (1.4.x) is incompatible with better-auth 1.5.0
+- [Phase 03-01]: JWT Bearer uses Authority=client:5173/api/auth, RequireHttpsMetadata=false, ValidateIssuer=false, ValidateAudience=false in dev
 
 ### Pending Todos
 
@@ -104,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: Quick task 1 complete — developer menu for real-time game state manipulation.
-Resume file: none — ready for Phase 3
+Last session: 2026-03-02
+Stopped at: Completed 03-01-PLAN.md — Better Auth + JWT Bearer + Phase 3 entity scaffolding.
+Resume file: none — ready for Plan 02 (Lobby)

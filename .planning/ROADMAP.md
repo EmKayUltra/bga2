@@ -73,7 +73,7 @@ Plans:
 **Plans:** 6 plans in 4 waves
 
 Plans:
-- [ ] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
+- [x] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
 - [ ] 03-02-PLAN.md -- Lobby + table management (create/join/start tables, waiting room, Quick Play)
 - [ ] 03-03-PLAN.md -- User profiles + match history (avatar selector, stats, game results)
 - [ ] 03-04-PLAN.md -- Real-time gameplay (AppSync Events, idempotent moves, reconnection, optimistic locking)
@@ -123,11 +123,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
-| 3. Multiplayer + Social | 0/6 | Planned   | - |
+| 3. Multiplayer + Social | 1/6 | In progress | - |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-01 — Phase 3 planned (6 plans in 4 waves)*
+*Last updated: 2026-03-02 — Phase 3 Plan 01 complete (auth + entity scaffolding)*

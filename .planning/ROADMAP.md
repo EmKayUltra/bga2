@@ -79,7 +79,7 @@ Plans:
 - [x] 03-04-PLAN.md -- Real-time gameplay (AppSync Events, idempotent moves, reconnection, optimistic locking)
 - [x] 03-05-PLAN.md -- Friends + game invites (friend requests, search, invite links, post-game prompts)
 - [x] 03-06-PLAN.md -- Chat + PWA (in-game chat with word filter, PWA manifest + service worker)
-- [ ] 03-07-PLAN.md -- Gap closure: wire real user IDs into game state for match history (SOCL-02 fix)
+- [x] 03-07-PLAN.md -- Gap closure: wire real user IDs into game state for match history (SOCL-02 fix)
 
 ### Phase 4: Async + Notifications
 **Goal**: Players can start a game and take turns over days or weeks — the platform supports the dominant adult play pattern (async) with notifications that keep games moving without causing fatigue
@@ -90,7 +90,13 @@ Plans:
   2. When it becomes a player's turn in an async game, they receive an email notification; escalating reminders fire at 48h, 24h, and final hour before a deadline
   3. A player who has installed the PWA receives a Web Push notification when it is their turn, even when the browser is closed
   4. A player can configure their notification preferences (immediate vs. daily digest, per-game opt-out) and those preferences are respected by all notification channels
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md -- Async game mode foundation (GameTable extensions, Hangfire, notification entities, lobby async support)
+- [ ] 04-02-PLAN.md -- Notification pipeline (NotificationService, DeadlineService, email via Resend, GameService integration)
+- [ ] 04-03-PLAN.md -- Web Push (injectManifest service worker, push subscription, VAPID, notification endpoints)
+- [ ] 04-04-PLAN.md -- UI integration (notification preferences, lobby filter + My Games, timer countdown, pause flow, verification)
 
 ### Phase 5: AI Game Creation Toolkit
 **Goal**: A game designer can feed a rulebook and art assets into a local C# tool and receive a deployable game package that runs on the BGA2 engine — validated by using it to ship a second game
@@ -118,17 +124,17 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track from Phase 3) → 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from Phase 3) -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
-| 4. Async + Notifications | TBD | Not started | - |
+| 4. Async + Notifications | 0/4 | Planned | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-01 — Phase 3 complete: all 6 plans done (03-06: Chat + PWA)*
+*Last updated: 2026-03-02 — Phase 4 planned: 4 plans in 3 waves*

@@ -36,6 +36,16 @@ public class GameSession
     /// </summary>
     public uint RowVersion { get; set; }
 
+    /// <summary>
+    /// JSON array of client-generated move UUIDs (MoveId) that have been processed.
+    /// Used for idempotency: if a client retries a move with the same MoveId,
+    /// the server returns the cached result without reprocessing.
+    ///
+    /// Stored as a JSON text array (e.g. '["uuid1","uuid2",...]').
+    /// Trimmed to the last 100 entries to prevent unbounded growth.
+    /// </summary>
+    public string PlayedMoveIds { get; set; } = "[]";
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

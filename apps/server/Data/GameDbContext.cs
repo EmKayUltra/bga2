@@ -38,6 +38,13 @@ public class GameDbContext : DbContext
                 .HasMaxLength(64)
                 .IsRequired();
 
+            // PlayedMoveIds: JSON array of client move UUIDs for idempotency deduplication.
+            // Stored as jsonb for consistency with State column; defaults to empty array.
+            entity.Property(e => e.PlayedMoveIds)
+                .HasColumnType("jsonb")
+                .HasDefaultValue("[]")
+                .IsRequired();
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("NOW()");
 

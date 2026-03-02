@@ -60,11 +60,19 @@ public static class GameEndpoints
             Valid: result.IsValid,
             State: result.NewState,
             ValidMoves: result.ValidMoves,
-            Errors: result.Errors
+            Errors: result.Errors,
+            Version: result.Version
         );
 
         if (!result.IsValid)
         {
+            // Return 409 Conflict specifically for concurrent move collisions so the
+            // client can distinguish "invalid move" (400) from "race condition" (409)
+            // and apply the appropriate retry strategy.
+            if (result.IsConcurrencyConflict)
+            {
+                return Results.Conflict(response);
+            }
             return Results.BadRequest(response);
         }
 

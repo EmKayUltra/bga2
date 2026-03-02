@@ -18,9 +18,13 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 builder.Services.AddDbContext<GameDbContext>(opts =>
     opts.UseNpgsql(connectionString));
 
+// ─── HTTP client factory (used by AppSyncPublisher) ───────────────────────────
+builder.Services.AddHttpClient();
+
 // ─── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<HookExecutor>();
 builder.Services.AddScoped<ProfileService>();
+builder.Services.AddScoped<AppSyncPublisher>();
 builder.Services.AddScoped<GameService>();
 builder.Services.AddScoped<LobbyService>();
 

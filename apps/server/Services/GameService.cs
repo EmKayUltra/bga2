@@ -26,16 +26,21 @@ public class GameService
     private readonly HookExecutor _hookExecutor;
     private readonly ILogger<GameService> _logger;
     private readonly ProfileService _profileService;
+    private readonly AppSyncPublisher _appSyncPublisher;
 
     // Azul tile colors (20 of each = 100 total)
     private static readonly string[] TileColors = ["blue", "yellow", "red", "black", "white"];
 
-    public GameService(GameDbContext db, HookExecutor hookExecutor, ILogger<GameService> logger, ProfileService profileService)
+    // Maximum number of played move IDs to retain for deduplication (prevents unbounded growth)
+    private const int MaxPlayedMoveIds = 100;
+
+    public GameService(GameDbContext db, HookExecutor hookExecutor, ILogger<GameService> logger, ProfileService profileService, AppSyncPublisher appSyncPublisher)
     {
         _db = db;
         _hookExecutor = hookExecutor;
         _logger = logger;
         _profileService = profileService;
+        _appSyncPublisher = appSyncPublisher;
     }
 
     /// <summary>
@@ -195,6 +200,21 @@ public class GameService
             return new MoveResult(false, Errors: [$"Game session {sessionId} not found"]);
         }
 
+        // Idempotency check: if MoveId provided and already processed, return current state
+        if (!string.IsNullOrEmpty(move.MoveId))
+        {
+            var playedIds = ParsePlayedMoveIds(session.PlayedMoveIds);
+            if (playedIds.Contains(move.MoveId))
+            {
+                _logger.LogInformation("Duplicate MoveId {MoveId} detected for session {SessionId} — returning cached success", move.MoveId, sessionId);
+                // Return current state as a successful no-op (the move was already applied)
+                var hooksSourceForDedup = _hookExecutor.LoadHooks(session.GameId);
+                var (dedupPlayer, dedupRound) = ExtractPlayerAndRound(session.State);
+                var dedupValidMoves = _hookExecutor.GetValidMoves(hooksSourceForDedup, session.State, dedupPlayer, dedupRound);
+                return new MoveResult(true, session.State, dedupValidMoves, Version: session.Version);
+            }
+        }
+
         // Load hooks source for this game
         var hooksSource = _hookExecutor.LoadHooks(session.GameId);
 
@@ -236,9 +256,15 @@ public class GameService
         }
 
         // Step 5: Persist updated state with version increment
+        // Also record MoveId for idempotency (if provided)
         session.State = newStateJson;
         session.Version++;
         session.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrEmpty(move.MoveId))
+        {
+            session.PlayedMoveIds = AppendMoveId(session.PlayedMoveIds, move.MoveId);
+        }
 
         try
         {
@@ -247,8 +273,12 @@ public class GameService
         catch (DbUpdateConcurrencyException ex)
         {
             _logger.LogWarning(ex, "Optimistic locking conflict on session {SessionId} — concurrent move detected", sessionId);
-            return new MoveResult(false, Errors: ["Game state was modified concurrently — please retry your move"]);
+            return new MoveResult(false, Errors: ["Game state was modified concurrently — please retry your move"], IsConcurrencyConflict: true);
         }
+
+        // Step 5b: Publish to AppSync Events for real-time sync (best-effort, non-blocking)
+        // This runs AFTER the DB save so only confirmed moves are broadcast.
+        await _appSyncPublisher.PublishGameState(sessionId, newStateJson, session.Version);
 
         // Step 6: If game finished, record match results for all players
         if (IsGameFinished(newStateJson))
@@ -277,7 +307,7 @@ public class GameService
             "Move applied to session {SessionId}: action={Action}, version={Version}, nextValidMoves={Count}",
             sessionId, move.Action, session.Version, nextValidMoves.Count);
 
-        return new MoveResult(true, newStateJson, nextValidMoves);
+        return new MoveResult(true, newStateJson, nextValidMoves, Version: session.Version);
     }
 
     /// <summary>
@@ -406,6 +436,52 @@ public class GameService
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Parses the PlayedMoveIds JSON array into a HashSet for O(1) lookup.
+    /// Returns empty set if the JSON is null, empty, or malformed.
+    /// </summary>
+    private static HashSet<string> ParsePlayedMoveIds(string playedMoveIdsJson)
+    {
+        if (string.IsNullOrEmpty(playedMoveIdsJson) || playedMoveIdsJson == "[]")
+            return [];
+        try
+        {
+            var ids = JsonSerializer.Deserialize<List<string>>(playedMoveIdsJson);
+            return ids != null ? new HashSet<string>(ids) : [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Appends a new MoveId to the PlayedMoveIds JSON array.
+    /// Trims to the last MaxPlayedMoveIds entries to prevent unbounded growth.
+    /// </summary>
+    private static string AppendMoveId(string playedMoveIdsJson, string moveId)
+    {
+        List<string> ids;
+        try
+        {
+            ids = JsonSerializer.Deserialize<List<string>>(playedMoveIdsJson) ?? [];
+        }
+        catch
+        {
+            ids = [];
+        }
+
+        ids.Add(moveId);
+
+        // Trim to last MaxPlayedMoveIds entries
+        if (ids.Count > MaxPlayedMoveIds)
+        {
+            ids = ids.Skip(ids.Count - MaxPlayedMoveIds).ToList();
+        }
+
+        return JsonSerializer.Serialize(ids);
     }
 
     /// <summary>

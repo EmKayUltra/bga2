@@ -20,6 +20,10 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       VITE_API_URL: "http://localhost:8080"
       DATABASE_URL: "postgres://bga2:secret@db:5432/bga2"
+      # AppSync Events: set in host .env for real-time WebSocket subscriptions.
+      # If empty, client disables AppSync and game uses polling fallback.
+      VITE_APPSYNC_HTTP_ENDPOINT: "${APPSYNC_HTTP_ENDPOINT:-}"
+      VITE_APPSYNC_API_KEY: "${APPSYNC_API_KEY:-}"
     depends_on:
       - server
     networks:
@@ -46,6 +50,10 @@ services:
       ASPNETCORE_URLS: "http://0.0.0.0:8080"
       ConnectionStrings__Default: "Host=db;Port=5432;Database=bga2;Username=bga2;Password=secret"
       BETTER_AUTH_URL: "http://client:5173"
+      # AppSync Events: set these in host .env file for real-time sync.
+      # If empty, game falls back to REST-only (no real-time — page refresh required).
+      AppSync__HttpEndpoint: "${APPSYNC_HTTP_ENDPOINT:-}"
+      AppSync__ApiKey: "${APPSYNC_API_KEY:-}"
     depends_on:
       db:
         condition: service_healthy

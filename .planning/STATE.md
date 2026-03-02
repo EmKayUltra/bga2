@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 Phase: 4 of 6 — IN PROGRESS (Async + Notifications)
 Plans: 3/4 complete (04-01: async foundation, 04-02: deadline/email service, 04-03: Web Push client infrastructure)
 Status: Phase 4 in progress. Plans 04-01, 04-02, 04-03 executed.
-Last activity: 2026-03-02 — Completed 04-03: injectManifest service worker, push subscription helper, notificationApi client, NotificationEndpoints server
+Last activity: 2026-03-02 — Completed quick task 3: Fix VITE_API_URL Docker networking and remove unused LocalStack service
 
 Progress: [█████░░░░░] 63% (3.75 of 6 phases complete)
 
@@ -148,5 +148,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 04-03-PLAN.md — injectManifest service worker with push/notificationclick handlers, pushSubscription.ts helper, notificationApi.ts client, NotificationEndpoints server
-Resume file: none — 04-03 complete, ready for 04-04 (notification settings UI)
+Stopped at: Completed quick task 3 (Fix VITE_API_URL Docker networking + remove LocalStack). Phase 4 plan 04-04 still needs checkpoint approval and SUMMARY.
+Resume file: .planning/phases/04-async-notifications/.continue-here.md

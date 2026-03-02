@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Engine Foundation** - Game engine primitives, renderer abstraction, FSM runtime, game hook contract, and Dockerized dev environment — the shared foundation everything else builds on
 - [x] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, PostgreSQL persistence, REST API, and SvelteKit game view (completed 2026-03-01)
-- [ ] **Phase 3: Multiplayer + Social** - Real-time play via AppSync Events, lobby system, player profiles, friend system, and PWA installability
+- [x] **Phase 3: Multiplayer + Social** - Real-time play via AppSync Events, lobby system, player profiles, friend system, and PWA installability (completed 2026-03-02)
 - [ ] **Phase 4: Async + Notifications** - Async turn-based game mode with configurable timers, email notifications, Web Push, and player notification preferences
 - [ ] **Phase 5: AI Game Creation Toolkit** - Local-first C# tool for ingesting rulebooks and generating deployable game packages via LLM pipeline with mandatory human review gate
 - [ ] **Phase 6: Player Platform** - Game library, spectator mode, game replay, Stripe subscription integration, and PWA polish
@@ -70,7 +70,7 @@ Plans:
   3. A player who closes their tab mid-game and reopens it sees the current board state and can continue playing — reconnection re-fetches server state before enabling moves
   4. A player has a profile with username and avatar; their match history shows completed games with results, opponents, and dates
   5. The PWA installs to the home screen from the browser install prompt and launches as a standalone app
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
@@ -123,7 +123,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
-| 3. Multiplayer + Social | 5/6 | In Progress|  |
+| 3. Multiplayer + Social | 6/6 | Complete   | 2026-03-02 |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |

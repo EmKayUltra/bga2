@@ -44,7 +44,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SOCL-03**: User can add/remove friends
 - [x] **SOCL-04**: User can invite friends to a game
 - [x] **SOCL-05**: User can create private invite-only tables
-- [ ] **SOCL-06**: User can send text chat messages during and after games
+- [x] **SOCL-06**: User can send text chat messages during and after games
 
 ### Notifications
 
@@ -78,7 +78,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Platform
 
 - [x] **PLAT-01**: User can sign up, log in, and maintain session across browser refresh
-- [ ] **PLAT-02**: PWA installable from browser with service worker
+- [x] **PLAT-02**: PWA installable from browser with service worker
 - [ ] **PLAT-03**: Freemium subscription with premium game/feature access (Stripe)
 
 ## v2 Requirements
@@ -159,8 +159,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SOCL-03 | Phase 3 | Complete |
 | SOCL-04 | Phase 3 | Complete |
 | SOCL-05 | Phase 3 | Complete |
-| SOCL-06 | Phase 3 | Pending |
-| PLAT-02 | Phase 3 | Pending |
+| SOCL-06 | Phase 3 | Complete |
+| PLAT-02 | Phase 3 | Complete |
 | MULT-02 | Phase 4 | Pending |
 | NOTF-01 | Phase 4 | Pending |
 | NOTF-02 | Phase 4 | Pending |

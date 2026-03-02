@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-02T01:57:08Z"
+status: unknown
+last_updated: "2026-03-02T02:08:44.547Z"
 progress:
-  total_phases: 6
-  completed_phases: 2
+  total_phases: 3
+  completed_phases: 3
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -88,6 +88,9 @@ Recent decisions affecting current work:
 - [Phase 03-05]: In-memory ConcurrentDictionary for online presence (60s threshold) — production would use Redis/DynamoDB TTL
 - [Phase 03-05]: HMAC invite token splits from the right (lastIndexOf) to handle ISO 8601 expiry dates that contain colons
 - [Phase 03-05]: Post-game friend prompt matches by player.name — game state in hot-seat mode does not carry Better Auth userIds
+- [Phase 03-multiplayer-social]: Chat filtered server-side in C# before AppSync publish — server controls broadcast, client cannot bypass filter
+- [Phase 03-multiplayer-social]: PWA devOptions.enabled=false in dev — avoids service worker caching conflicts in Docker with HMR
+- [Phase 03-06]: Chat is ephemeral — AppSync Events only, not persisted; PlayerReport entity logs reports for moderation audit only
 
 ### Pending Todos
 

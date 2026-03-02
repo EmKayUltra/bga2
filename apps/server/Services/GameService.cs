@@ -274,6 +274,27 @@ public class GameService
     }
 
     /// <summary>
+    /// Loads a game session from the database by ID.
+    /// Returns null if not found.
+    /// Used by DevEndpoints to avoid giving them direct DB access.
+    /// </summary>
+    public async Task<GameSession?> LoadSession(Guid sessionId)
+    {
+        return await _db.GameSessions.FindAsync(sessionId);
+    }
+
+    /// <summary>
+    /// Persists an updated game session to the database.
+    /// Increments version and sets UpdatedAt before saving.
+    /// </summary>
+    public async Task SaveSession(GameSession session)
+    {
+        session.Version++;
+        session.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Checks whether the submitted move matches any of the valid moves returned by the hook.
     /// A match requires action to match; source/target/pieceId are matched only when the
     /// valid move specifies them (null fields in ValidMove are wildcards).
@@ -295,7 +316,7 @@ public class GameService
     /// Falls back to currentPlayer string field for backward compatibility with old state format.
     /// Falls back to safe defaults if state is missing these fields.
     /// </summary>
-    internal static (string currentPlayer, int round) ExtractPlayerAndRound(string stateJson)
+    public static (string currentPlayer, int round) ExtractPlayerAndRound(string stateJson)
     {
         try
         {

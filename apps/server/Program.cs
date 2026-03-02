@@ -87,6 +87,9 @@ app.MapGet("/health", () => new
 // Game endpoints (POST /games, POST /games/{id}/move, GET /games/{id}/state)
 app.MapGameEndpoints();
 
+// Dev endpoints (POST /dev/{id}/trigger-round-end, /trigger-game-end, /set-state)
+app.MapDevEndpoints();
+
 // ─── Startup ───────────────────────────────────────────────────────────────────
 app.Logger.LogInformation("BGA2 Server starting on {Url}", "http://0.0.0.0:8080");
 

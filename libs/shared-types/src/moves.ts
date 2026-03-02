@@ -75,4 +75,16 @@ export interface MoveResult {
 
   /** Validation failure reasons (only present if valid is false). */
   errors?: string[];
+
+  /**
+   * True when the server returned 409 Conflict — a concurrent move collision.
+   * The caller should re-fetch state and optionally retry the move.
+   */
+  conflict?: boolean;
+
+  /**
+   * Server-side state version after the move was applied.
+   * Used by the client to order AppSync Events and ignore stale updates.
+   */
+  version?: number;
 }

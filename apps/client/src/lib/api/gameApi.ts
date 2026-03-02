@@ -14,7 +14,51 @@ import type { Move, ValidMove, MoveResult, GameState } from '@bga2/shared-types'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+// ─── Auth token cache ─────────────────────────────────────────────────────────
+
+interface TokenCache {
+  token: string;
+  expiresAt: number; // epoch ms
+}
+
+let tokenCache: TokenCache | null = null;
+
+/**
+ * Fetch a JWT from Better Auth's /api/auth/token endpoint.
+ * Caches for 30 seconds to avoid per-request token fetches.
+ * Returns null if the user is not authenticated or fetch fails.
+ */
+export async function getApiToken(): Promise<string | null> {
+  const now = Date.now();
+  if (tokenCache && tokenCache.expiresAt > now) {
+    return tokenCache.token;
+  }
+
+  try {
+    const res = await fetch('/api/auth/token', {
+      method: 'GET',
+      credentials: 'include', // send session cookie
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { token?: string };
+    if (!data.token) return null;
+    tokenCache = { token: data.token, expiresAt: now + 30_000 };
+    return data.token;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build Authorization header for authenticated requests.
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getApiToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
 
 // ─── localStorage schema ──────────────────────────────────────────────────────
 
@@ -73,6 +117,9 @@ export interface MoveResponse {
   newState?: GameState;
   validMoves?: ValidMove[];
   errors?: string[];
+  version?: number;
+  /** True when server returned 409 Conflict — concurrent move collision */
+  conflict?: boolean;
 }
 
 // ─── Error helpers ────────────────────────────────────────────────────────────
@@ -206,21 +253,30 @@ export async function devSetState(sessionId: string, overrides: Record<string, u
 /**
  * Submit a player move to the server for validation and execution.
  *
- * Returns a MoveResult. If the move is valid, the result contains the updated
- * game state and the next set of valid moves. If invalid, it contains errors.
+ * Generates a client-side moveId (crypto.randomUUID()) for idempotency.
+ * On network retry, the same moveId prevents double-processing.
+ *
+ * On 409 Conflict: a concurrent move collision occurred. The caller should
+ * re-fetch state and decide whether to retry. The result will have conflict=true.
  *
  * @param sessionId - The game session ID
  * @param move - The move to submit
  */
 export async function submitMove(sessionId: string, move: Move): Promise<MoveResult> {
-  console.log(`[gameApi] POST /move → {action:'${move.action}', source:'${move.source}', target:'${move.target}', pieceId:'${move.pieceId}'}`);
+  // Generate idempotency key — safe to retry with same moveId
+  const moveId = crypto.randomUUID();
+  const body = { ...move, moveId };
+
+  console.log(`[gameApi] POST /move → {action:'${move.action}', source:'${move.source}', target:'${move.target}', pieceId:'${move.pieceId}', moveId:'${moveId}'}`);
+
   let res: Response;
+  const headers = await authHeaders();
 
   try {
     res = await fetch(`${API_BASE}/games/${encodeURIComponent(sessionId)}/move`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(move),
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
     });
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Network error';
@@ -231,20 +287,32 @@ export async function submitMove(sessionId: string, move: Move): Promise<MoveRes
     };
   }
 
+  // 409 Conflict: concurrent move — both players submitted simultaneously
+  if (res.status === 409) {
+    console.warn('[gameApi] POST /move ← 409 Conflict: concurrent move detected');
+    const raw = await res.json().catch(() => ({})) as Record<string, unknown>;
+    return {
+      valid: false,
+      conflict: true,
+      errors: (raw['errors'] as string[] | undefined) ?? ['Concurrent move — please retry'],
+    };
+  }
+
   if (!res.ok) {
     const result = await parseErrorResponse(res);
     console.log(`[gameApi] POST /move ← error: ${result.errors?.join(', ')}`);
     return result;
   }
 
-  // Server sends { valid, state (string), validMoves, errors }
+  // Server sends { valid, state (string), validMoves, errors, version }
   // Client MoveResult expects { valid, newState (object), validMoves, errors }
-  const raw = await res.json();
+  const raw = await res.json() as Record<string, unknown>;
   const result = {
-    valid: raw.valid,
-    newState: raw.state ? (typeof raw.state === 'string' ? JSON.parse(raw.state) : raw.state) : undefined,
-    validMoves: raw.validMoves ?? undefined,
-    errors: raw.errors ?? undefined,
+    valid: raw['valid'] as boolean,
+    newState: raw['state'] ? (typeof raw['state'] === 'string' ? JSON.parse(raw['state'] as string) as GameState : raw['state'] as GameState) : undefined,
+    validMoves: raw['validMoves'] as ValidMove[] | undefined ?? undefined,
+    errors: raw['errors'] as string[] | undefined ?? undefined,
+    version: raw['version'] as number | undefined,
   };
   console.log(`[gameApi] POST /move ← valid:${result.valid}, nextMoves:${result.validMoves?.length ?? 0}${result.errors ? ', errors:' + result.errors.join(', ') : ''}`);
   return result;

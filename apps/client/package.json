@@ -25,6 +25,7 @@
   },
   "type": "module",
   "dependencies": {
+    "aws-amplify": "^6.16.2",
     "better-auth": "^1.5.0",
     "pg": "^8.19.0"
   }

@@ -14,11 +14,14 @@
 	 *   - Production info bar replaces Phase 1 dev toolbar
 	 */
 	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	import type { PageData } from './$types.js';
-	import type { SceneManagerState } from '$lib/engine/SceneManager.js';
+	import type { SceneManagerState, ConnectionState } from '$lib/engine/SceneManager.js';
 	import type { GameState } from '@bga2/shared-types';
 	import type { GameStateResponse } from '$lib/api/gameApi.js';
 	import DevMenu from '$lib/components/DevMenu.svelte';
+	import { sendFriendRequest } from '$lib/api/friendApi.js';
+	import { authClient } from '$lib/auth-client';
 
 	// Page data from load function (contains the game session ID from URL)
 	let { data }: { data: PageData } = $props();
@@ -46,7 +49,13 @@
 		turnHandoffMode: 'open-board',
 		selectedSource: null,
 		selectedColor: null,
+		connectionState: 'connected',
+		localPlayerIndex: null,
+		version: 0,
 	});
+
+	// Connection status indicator
+	let connectionState = $state<ConnectionState>('connected');
 
 	// Turn banner state
 	let turnBanner = $state<string | null>(null);
@@ -54,6 +63,10 @@
 
 	// Score summary state (when game finishes)
 	let finishedGameState = $state<GameState | null>(null);
+
+	// Post-game friend prompt state: tracks request status per player name
+	let friendRequestStatus = $state<Record<string, 'idle' | 'loading' | 'sent' | 'error'>>({});
+	let currentUserName = $state<string | null>(null);
 
 	// Floor overflow preference (opt-in; stored in localStorage)
 	let floorOverflowWarning = $state(false);
@@ -69,6 +82,21 @@
 	);
 
 	let currentRound = $derived(gameState.gameState?.round ?? 1);
+
+	/**
+	 * Turn status for multiplayer: "Your turn" vs "Waiting for {playerName}".
+	 * In hot-seat mode (localPlayerIndex == null), always shows current player name.
+	 */
+	let turnStatus = $derived(() => {
+		if (gameState.localPlayerIndex === null) {
+			// Hot-seat mode: show whose turn it is
+			return `${currentPlayerName}'s Turn`;
+		}
+		if (gameState.currentPlayerIndex === gameState.localPlayerIndex) {
+			return 'Your Turn';
+		}
+		return `Waiting for ${currentPlayerName}`;
+	});
 
 	let winnerName = $derived(() => {
 		if (!finishedGameState?.winnerId) return null;
@@ -121,6 +149,23 @@
 	}
 
 	/**
+	 * Send a friend request to an opponent by their username (player name).
+	 * Players in Azul use their display name as the player name.
+	 */
+	async function handleAddFriend(opponentName: string): Promise<void> {
+		friendRequestStatus = { ...friendRequestStatus, [opponentName]: 'loading' };
+		try {
+			const result = await sendFriendRequest(opponentName);
+			friendRequestStatus = {
+				...friendRequestStatus,
+				[opponentName]: result.success ? 'sent' : 'error',
+			};
+		} catch {
+			friendRequestStatus = { ...friendRequestStatus, [opponentName]: 'error' };
+		}
+	}
+
+	/**
 	 * Handle a state update from the DevMenu.
 	 * Pushes fresh state from the dev endpoint through SceneManager and triggers re-render.
 	 */
@@ -168,6 +213,14 @@
 			// ignore
 		}
 
+		// Load current user's name so we can exclude them from the friend prompt
+		try {
+			const session = await authClient.getSession();
+			currentUserName = session?.data?.user?.name ?? null;
+		} catch {
+			// Not logged in — post-game prompt won't show
+		}
+
 		try {
 			// Dynamically import SceneManager (SSR-safe — only runs in browser)
 			const { SceneManager } = await import('$lib/engine/SceneManager.js');
@@ -182,6 +235,7 @@
 			sceneManager.onStateChange = () => {
 				if (sceneManager) {
 					gameState = { ...sceneManager.state };
+					connectionState = sceneManager.state.connectionState;
 				}
 			};
 
@@ -195,22 +249,45 @@
 				finishedGameState = gs;
 			};
 
+			// Wire connection state change
+			sceneManager.onConnectionStateChange = (state) => {
+				connectionState = state;
+			};
+
 			// Initialize: renderer, viewport, model, FSM, scene render
 			// Use session ID from URL if available (not 'test')
 			const sessionId = data.id !== 'test' ? data.id : undefined;
 			await sceneManager.init(sessionId);
 
-			// Expose SceneManager on window for puppeteer / dev access
-			if (typeof window !== 'undefined') {
-				(window as any).__sm = sceneManager;
-			}
-
 			loading = false;
 			gameState = { ...sceneManager.state };
+			connectionState = sceneManager.state.connectionState;
 
 			// Show initial player banner
 			if (gameState.playerNames.length > 0) {
 				showTurnBanner(gameState.playerNames[0] ?? 'Player 1');
+			}
+
+			// ── AppSync real-time subscription (browser only) ─────────────────────
+			if (browser && sessionId) {
+				const { configureAppSync, subscribeToGame } = await import('$lib/appsync.js');
+
+				configureAppSync();
+
+				// Subscribe to game state channel
+				const unsubscribe = await subscribeToGame(
+					sessionId,
+					sceneManager.applyRemoteState,
+				);
+
+				if (unsubscribe && sceneManager) {
+					sceneManager.setAppSyncUnsubscribe(unsubscribe);
+				}
+			}
+
+			// Expose SceneManager on window for puppeteer / dev access
+			if (typeof window !== 'undefined') {
+				(window as any).__sm = sceneManager;
 			}
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Failed to initialize game';
@@ -260,7 +337,7 @@
 	<div class="info-divider"></div>
 	<div class="info-section active-player">
 		<span class="info-label">Turn</span>
-		<span class="info-value player-name">{currentPlayerName}</span>
+		<span class="info-value player-name" class:waiting={gameState.localPlayerIndex !== null && gameState.currentPlayerIndex !== gameState.localPlayerIndex}>{turnStatus()}</span>
 	</div>
 	<div class="info-divider"></div>
 	<div class="info-section">
@@ -291,6 +368,20 @@
 {#if turnBanner}
 <div class="turn-banner" role="status" aria-live="polite">
 	{turnBanner}
+</div>
+{/if}
+
+<!-- Connection status banners — shown only when not in normal 'connected' state -->
+{#if connectionState === 'reconnecting'}
+<div class="connection-banner reconnecting" role="status" aria-live="polite">
+	Reconnecting...
+</div>
+{:else if connectionState === 'disconnected'}
+<div class="connection-banner disconnected" role="alert">
+	Connection lost
+	<button class="reconnect-button" onclick={() => window.location.reload()}>
+		Refresh
+	</button>
 </div>
 {/if}
 
@@ -339,6 +430,36 @@
 				</tbody>
 			</table>
 		</div>
+
+		<!-- Post-game friend prompt: shown when user is logged in and game is multiplayer -->
+		{#if currentUserName && finishedGameState && finishedGameState.players.length > 1}
+			{@const opponents = finishedGameState.players.filter(p => p.name !== currentUserName)}
+			{#if opponents.length > 0}
+				<div class="friend-prompt">
+					<p class="friend-prompt-label">Add opponents as friends?</p>
+					<div class="friend-prompt-list">
+						{#each opponents as opponent (opponent.id)}
+							<div class="friend-prompt-item">
+								<span class="friend-prompt-name">{opponent.name}</span>
+								{#if friendRequestStatus[opponent.name] === 'sent'}
+									<span class="friend-prompt-sent">Request Sent</span>
+								{:else if friendRequestStatus[opponent.name] === 'error'}
+									<span class="friend-prompt-error">Failed</span>
+								{:else}
+									<button
+										class="btn-add-friend"
+										onclick={() => handleAddFriend(opponent.name)}
+										disabled={friendRequestStatus[opponent.name] === 'loading'}
+									>
+										{friendRequestStatus[opponent.name] === 'loading' ? '...' : 'Add Friend'}
+									</button>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		{/if}
 
 		<button class="new-game-button" onclick={startNewGame}>
 			New Game
@@ -532,6 +653,54 @@
 			opacity: 1;
 			transform: translateX(-50%) translateY(0);
 		}
+	}
+
+	/* ── Connection status banners ── */
+	.connection-banner {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 250;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 0.5rem 1rem;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.connection-banner.reconnecting {
+		background: rgba(217, 119, 6, 0.92);
+		color: #fff;
+	}
+
+	.connection-banner.disconnected {
+		background: rgba(220, 38, 38, 0.92);
+		color: #fff;
+	}
+
+	.reconnect-button {
+		background: rgba(255, 255, 255, 0.2);
+		border: 1px solid rgba(255, 255, 255, 0.4);
+		border-radius: 4px;
+		color: #fff;
+		font-family: inherit;
+		font-size: 0.8125rem;
+		padding: 0.2rem 0.6rem;
+		cursor: pointer;
+	}
+
+	.reconnect-button:hover {
+		background: rgba(255, 255, 255, 0.3);
+	}
+
+	/* "Waiting" turn indicator — muted to show it's not the local player's turn */
+	.player-name.waiting {
+		color: #64748b;
+		font-weight: 400;
 	}
 
 	/* ── Score summary overlay ── */

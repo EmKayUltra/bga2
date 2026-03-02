@@ -30,6 +30,8 @@ import type { Actor } from 'xstate';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
+
 export interface SceneManagerState {
   sessionId: string | null;
   currentPlayerIndex: number;      // derived from server state — replaces hardcoded playerId
@@ -42,6 +44,9 @@ export interface SceneManagerState {
   turnHandoffMode: 'open-board' | 'pass-and-play';
   selectedSource: string | null;   // currently selected factory/center zone ID
   selectedColor: string | null;    // currently selected tile color
+  connectionState: ConnectionState; // real-time connection status for UI indicator
+  localPlayerIndex: number | null; // which player index is the local user (null = all local)
+  version: number;                 // server state version for ordering AppSync events
 }
 
 // ─── SceneManager ─────────────────────────────────────────────────────────────
@@ -73,6 +78,9 @@ export class SceneManager {
     turnHandoffMode: 'open-board',
     selectedSource: null,
     selectedColor: null,
+    connectionState: 'connected',
+    localPlayerIndex: null,
+    version: 0,
   };
 
   /** Notified when public state changes — used by the Svelte page for reactivity. */
@@ -83,6 +91,15 @@ export class SceneManager {
 
   /** Fired when the game ends — page shows score summary overlay. */
   public onGameFinished: ((state: GameState) => void) | null = null;
+
+  /** Fired when connection state changes (connected/reconnecting/disconnected). */
+  public onConnectionStateChange: ((state: ConnectionState) => void) | null = null;
+
+  // AppSync subscription cleanup function
+  private appSyncUnsubscribe: (() => void) | null = null;
+
+  // Reconnection in progress flag (prevents concurrent reconnect attempts)
+  private isReconnecting = false;
 
   constructor(container: HTMLElement, gameConfig: GameConfig) {
     this.container = container;
@@ -100,7 +117,15 @@ export class SceneManager {
    * 5. Fetch real game state from server (if sessionId provided)
    * 6. Create AzulScene and render initial board
    */
-  async init(sessionId?: string): Promise<void> {
+  /**
+   * @param sessionId - Game session UUID (or undefined to create a demo session)
+   * @param localPlayerIndex - Which player index is the local user. null = hot-seat
+   *   mode (all players local — no move control guards).
+   */
+  async init(sessionId?: string, localPlayerIndex?: number): Promise<void> {
+    if (localPlayerIndex !== undefined) {
+      this.state.localPlayerIndex = localPlayerIndex;
+    }
     // 1. Dynamic import of PixiAdapter (SSR-safe)
     const { PixiAdapter } = await import('@bga2/engine-core');
     this.renderer = new PixiAdapter();
@@ -232,6 +257,10 @@ export class SceneManager {
     this.state.currentPlayerIndex = gs.currentPlayerIndex;
     this.state.playerNames = gs.players.map((p) => p.name);
     this.state.playerScores = gs.players.map((p) => p.score);
+    // Track version for AppSync event ordering (ignore stale events)
+    if (gs.version !== undefined && gs.version > this.state.version) {
+      this.state.version = gs.version;
+    }
   }
 
   /**
@@ -256,6 +285,8 @@ export class SceneManager {
    * Destroy the renderer, stop FSM, and clean up all resources.
    */
   destroy(): void {
+    this.appSyncUnsubscribe?.();
+    this.appSyncUnsubscribe = null;
     this.fsmActor?.stop();
     this.renderer?.destroy();
     this.renderer = null;
@@ -263,6 +294,147 @@ export class SceneManager {
     this.fsm = null;
     this.fsmActor = null;
     this.scene = null;
+  }
+
+  // ── AppSync / real-time ───────────────────────────────────────────────────────
+
+  /**
+   * Set the AppSync unsubscribe function (called by the game page after subscribing).
+   */
+  setAppSyncUnsubscribe(fn: (() => void) | null): void {
+    this.appSyncUnsubscribe = fn;
+  }
+
+  /**
+   * Apply a remote state update received via AppSync Events.
+   *
+   * Only applies the update if the incoming version is greater than the current
+   * locally-tracked version. Stale events (version <= current) are silently ignored.
+   *
+   * Called by the AppSync subscriber on the game page.
+   */
+  applyRemoteState = (stateJson: string, version: number): void => {
+    // Ignore stale events
+    if (version <= this.state.version) {
+      console.debug(`[SceneManager] applyRemoteState — ignoring stale version ${version} (current: ${this.state.version})`);
+      return;
+    }
+
+    try {
+      const gs = typeof stateJson === 'string'
+        ? (JSON.parse(stateJson) as GameState)
+        : (stateJson as GameState);
+
+      const prevPlayerIndex = this.state.currentPlayerIndex;
+      this.state.version = version;
+      this.updateStateFromGameState(gs);
+
+      // Update valid moves via polling (AppSync payload doesn't include valid moves)
+      // The next move submit will get fresh valid moves from the server
+      // For real-time we re-fetch after state update
+      if (this.state.sessionId) {
+        void getGameState(this.state.sessionId).then((stateResponse) => {
+          this.currentValidMoves = stateResponse.validMoves;
+          this.state.validMoves = stateResponse.validMoves;
+          this.onStateChange?.();
+        }).catch((err) => {
+          console.warn('[SceneManager] Failed to re-fetch valid moves after remote state:', err);
+        });
+      }
+
+      // Re-render scene with remote state
+      if (this.scene) {
+        this.scene.updateFromState(gs);
+        this.scene.setActivePlayer(gs.currentPlayerIndex);
+      }
+
+      // Fire turn change if player changed
+      if (gs.currentPlayerIndex !== prevPlayerIndex) {
+        this.onTurnChange?.(
+          gs.currentPlayerIndex,
+          this.state.playerNames[gs.currentPlayerIndex] ?? `Player ${gs.currentPlayerIndex + 1}`,
+        );
+      }
+
+      // Check for game end
+      if (gs.finished) {
+        this.onGameFinished?.(gs);
+      }
+
+      this.onStateChange?.();
+      console.debug(`[SceneManager] applyRemoteState — version ${version}, player ${gs.currentPlayerIndex}, phase ${gs.phase}`);
+    } catch (err) {
+      console.error('[SceneManager] Failed to parse remote state:', err);
+    }
+  };
+
+  /**
+   * Handle AppSync subscription error — trigger reconnection flow.
+   * Fetches current state, re-renders, then re-subscribes.
+   *
+   * Move controls are disabled (connectionState = 'reconnecting') until
+   * reconnection completes.
+   */
+  async handleAppSyncError(
+    resubscribeFn: () => Promise<(() => void) | null>,
+  ): Promise<void> {
+    if (this.isReconnecting) return;
+    this.isReconnecting = true;
+
+    this.state.connectionState = 'reconnecting';
+    this.onConnectionStateChange?.('reconnecting');
+    this.onStateChange?.();
+
+    console.warn('[SceneManager] AppSync disconnected — reconnecting...');
+
+    try {
+      // Fetch current state to ensure we're up to date
+      if (this.state.sessionId) {
+        const stateResponse = await getGameState(this.state.sessionId);
+        const gs = stateResponse.state;
+
+        this.currentValidMoves = stateResponse.validMoves;
+        this.state.validMoves = stateResponse.validMoves;
+        this.state.version = gs.version ?? this.state.version;
+        this.updateStateFromGameState(gs);
+
+        if (this.scene) {
+          this.scene.updateFromState(gs);
+          this.scene.setActivePlayer(gs.currentPlayerIndex);
+        }
+      }
+
+      // Close old subscription and re-subscribe
+      this.appSyncUnsubscribe?.();
+      const newUnsubscribe = await resubscribeFn();
+      this.appSyncUnsubscribe = newUnsubscribe;
+
+      this.state.connectionState = 'connected';
+      this.onConnectionStateChange?.('connected');
+      this.onStateChange?.();
+
+      console.info('[SceneManager] Reconnected to AppSync');
+    } catch (err) {
+      console.error('[SceneManager] Reconnection failed:', err);
+      this.state.connectionState = 'disconnected';
+      this.onConnectionStateChange?.('disconnected');
+      this.onStateChange?.();
+    } finally {
+      this.isReconnecting = false;
+    }
+  }
+
+  /**
+   * Check if the local user is allowed to submit moves.
+   * Returns true if:
+   *   - localPlayerIndex is null (hot-seat mode — all players local), OR
+   *   - it's currently the local player's turn, AND
+   *   - connection is not reconnecting
+   */
+  isLocalPlayerTurn(): boolean {
+    if (this.state.connectionState === 'reconnecting') return false;
+    if (this.state.localPlayerIndex === null) return true;
+    return this.state.currentPlayerIndex === this.state.localPlayerIndex;
   }
 
   // ── Interaction handlers ──────────────────────────────────────────────────────
@@ -273,6 +445,12 @@ export class SceneManager {
    */
   handleSourceClick(zoneId: string, color: string): void {
     if (!this.scene) return;
+
+    // Guard: only allow moves when it's the local player's turn
+    if (!this.isLocalPlayerTurn()) {
+      console.debug(`[SceneManager] handleSourceClick — ignored (not local player's turn or reconnecting)`);
+      return;
+    }
 
     const relevantMoves = this.currentValidMoves.filter(
       (vm) => vm.source === zoneId && (vm.pieceId === color || !vm.pieceId)
@@ -303,6 +481,12 @@ export class SceneManager {
   handleDestinationClick(targetZoneId: string): void {
     if (!this.scene || !this.state.selectedSource || !this.state.selectedColor) {
       console.log(`[SceneManager] handleDestinationClick — ignored (no source selected), target:'${targetZoneId}'`);
+      return;
+    }
+
+    // Guard: double-check it's still the local player's turn (state may have changed)
+    if (!this.isLocalPlayerTurn()) {
+      console.debug(`[SceneManager] handleDestinationClick — ignored (not local player's turn)`);
       return;
     }
 
@@ -380,6 +564,15 @@ export class SceneManager {
     this.state.selectedColor = null;
 
     const result = await submitMove(this.state.sessionId, move);
+
+    // 409 Conflict: concurrent move — re-fetch state and re-render
+    if ((result as { conflict?: boolean }).conflict) {
+      console.warn('[SceneManager] 409 conflict — re-fetching state after concurrent move');
+      await this.refreshValidMoves();
+      this.onStateChange?.();
+      return;
+    }
+
     await this.handleMoveResult(result, sourceZone, prevColor ?? color, targetZoneId);
 
     void prevSource;

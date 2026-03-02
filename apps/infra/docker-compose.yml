@@ -22,10 +22,11 @@ services:
       DATABASE_URL: "postgres://bga2:secret@db:5432/bga2"
       # AppSync Events: set in host .env for real-time WebSocket subscriptions.
       # If empty, client disables AppSync and game uses polling fallback.
-      VITE_APPSYNC_HTTP_ENDPOINT: "${APPSYNC_HTTP_ENDPOINT:-}"
-      VITE_APPSYNC_API_KEY: "${APPSYNC_API_KEY:-}"
+      VITE_APPSYNC_HTTP_ENDPOINT: "${APPSYNC_HTTP_ENDPOINT:-http://localhost:4006}"
+      VITE_APPSYNC_API_KEY: "${APPSYNC_API_KEY:-mock-api-key}"
     depends_on:
       - server
+      - appsync-mock
     networks:
       - bga2
 
@@ -52,11 +53,13 @@ services:
       BETTER_AUTH_URL: "http://client:5173"
       # AppSync Events: set these in host .env file for real-time sync.
       # If empty, game falls back to REST-only (no real-time — page refresh required).
-      AppSync__HttpEndpoint: "${APPSYNC_HTTP_ENDPOINT:-}"
-      AppSync__ApiKey: "${APPSYNC_API_KEY:-}"
+      AppSync__HttpEndpoint: "${APPSYNC_HTTP_ENDPOINT_SERVER:-http://appsync-mock:4006}"
+      AppSync__ApiKey: "${APPSYNC_API_KEY:-mock-api-key}"
     depends_on:
       db:
         condition: service_healthy
+      appsync-mock:
+        condition: service_started
     networks:
       - bga2
 
@@ -97,6 +100,16 @@ services:
     volumes:
       - localstack_data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - bga2
+
+  # ─── AppSync Events Mock ──────────────────────────────────────────────────
+  appsync-mock:
+    build:
+      context: ../..
+      dockerfile: apps/infra/appsync-mock/Dockerfile
+    ports:
+      - "4006:4006"
     networks:
       - bga2
 

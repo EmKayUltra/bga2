@@ -21,6 +21,7 @@ builder.Services.AddDbContext<GameDbContext>(opts =>
 // ─── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<HookExecutor>();
 builder.Services.AddScoped<GameService>();
+builder.Services.AddScoped<LobbyService>();
 
 // ─── JWT Bearer authentication ────────────────────────────────────────────────
 // Better Auth exposes JWKS at /api/auth/jwks (via jwt plugin).
@@ -118,6 +119,9 @@ app.MapGameEndpoints();
 
 // Dev endpoints (POST /dev/{id}/trigger-round-end, /trigger-game-end, /set-state)
 app.MapDevEndpoints();
+
+// Lobby endpoints (GET/POST /tables, /tables/{id}/join|leave|start, /tables/quick-play)
+app.MapLobbyEndpoints();
 
 // ─── Startup ───────────────────────────────────────────────────────────────────
 app.Logger.LogInformation("BGA2 Server starting on {Url}", "http://0.0.0.0:8080");

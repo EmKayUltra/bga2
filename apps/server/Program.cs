@@ -26,8 +26,16 @@ builder.Services.AddHangfire(config =>
         opts.UseNpgsqlConnection(connectionString)));
 builder.Services.AddHangfireServer();
 
-// ─── HTTP client factory (used by AppSyncPublisher) ───────────────────────────
+// ─── HTTP client factory (used by AppSyncPublisher + PushServiceClient) ───────
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<Lib.Net.Http.WebPush.PushServiceClient>();
+
+// ─── Resend email client ───────────────────────────────────────────────────────
+builder.Services.Configure<Resend.ResendClientOptions>(o =>
+{
+    o.ApiToken = Environment.GetEnvironmentVariable("RESEND_APITOKEN") ?? "";
+});
+builder.Services.AddTransient<Resend.IResend, Resend.ResendClient>();
 
 // ─── Application services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<HookExecutor>();
@@ -38,6 +46,8 @@ builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<InviteService>();
 builder.Services.AddSingleton<ChatFilter>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<DeadlineService>();
 
 // ─── JWT Bearer authentication ────────────────────────────────────────────────
 // Better Auth exposes JWKS at /api/auth/jwks (via jwt plugin).
@@ -234,7 +244,11 @@ if (app.Environment.IsDevelopment())
 // Hangfire dashboard — available at /hangfire in dev
 app.UseHangfireDashboard("/hangfire");
 
-// TODO(Plan 02): RecurringJob.AddOrUpdate<DeadlineService>("deadline-checker", ...)
+// Recurring job: check for expired async game deadlines every 5 minutes
+RecurringJob.AddOrUpdate<DeadlineService>(
+    "deadline-checker",
+    svc => svc.ProcessExpiredDeadlines(),
+    "*/5 * * * *");
 
 app.UseCors("DevCors");
 
@@ -302,6 +316,9 @@ app.MapInviteEndpoints();
 
 // Chat endpoints (POST /chat/{channelId}/send, /chat/{channelId}/report)
 app.MapChatEndpoints();
+
+// Notification endpoints (POST /notifications/push/subscribe|unsubscribe, GET+PUT /notifications/preferences)
+app.MapNotificationEndpoints();
 
 // ─── Startup ───────────────────────────────────────────────────────────────────
 app.Logger.LogInformation("BGA2 Server starting on {Url}", "http://0.0.0.0:8080");

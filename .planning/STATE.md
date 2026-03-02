@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-01T16:54:16.328Z"
+status: in_progress
+last_updated: "2026-03-01T23:59:00.000Z"
 progress:
-  total_phases: 2
+  total_phases: 6
   completed_phases: 2
   total_plans: 11
   completed_plans: 11
@@ -18,31 +18,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 2 — Azul + First Playable (Plan 03 complete, 1 remaining)
+**Current focus:** Phase 2 complete — ready for Phase 3 (Multiplayer + Social)
 
 ## Current Position
 
-Phase: 2 of 6 (Azul + First Playable)
-Plan: 3 of 4 complete — 1 remaining
-Status: Phase 2 in progress — client wiring complete, game creation routes done, all plans complete
-Last activity: 2026-03-01 — Phase 2 Plan 03 complete (client scene: multi-player turn tracking, turn banner, score summary overlay)
+Phase: 2 of 6 — COMPLETE (Azul + First Playable)
+Plans: 4/4 complete + verification pass + bug fixes committed
+Status: Phase 2 done. Next: Phase 3 (Multiplayer + Social)
+Last activity: 2026-03-01 — Bug fixes committed (z-order animation, floor line visibility, TS stripper, white color)
 
-Progress: [██░░░░░░░░] 17% (1 of 6 phases, Plan 3/4 in Phase 2)
+Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 5 min
-- Total execution time: ~45 min (37 min auto + 8 min visual polish)
+- Total plans completed: 11
+- Average duration: ~7 min
+- Total execution time: ~80 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-engine-foundation | 7 | 45 min | 6.4 min |
-| 02-azul-first-playable | 2/4 | 35 min | 17.5 min |
-| Phase 02 P03 | 11 | 2 tasks | 3 files |
+| 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
+| 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
 
 ## Accumulated Context
 
@@ -70,6 +69,7 @@ Recent decisions affecting current work:
 - [Phase 02-03]: AzulScene two-step interaction: onSourceClick(zoneId, color) → selectSource with blue glow + green destination highlights, onDestinationClick(zoneId) → submit move
 - [Phase 02-03]: Server zone IDs are 1-indexed: player-{n}-pattern-line-{row} where n = playerIndex + 1
 - [Phase 02-03]: Score summary reads player.data.wallScore/rowBonus/colBonus/colorBonus/floorPenalty from server hooks — display only, no client-side scoring
+- [Quick-1]: DevEndpoints uses JsonNode.Parse for state mutation — avoids full deserialization into typed models for ad-hoc dev mutations
 
 ### Pending Todos
 
@@ -87,15 +87,17 @@ None yet.
 - Move validation: hooks return [] so server accepts all moves — Phase 2 implements real Azul hook logic
 - Viewport/touch: code exists, needs human verification on real devices
 
-## Phase 2 Status
+## Phase 2 Status — COMPLETE
 
 - Plan 01 (hooks.ts): COMPLETE — 32 tests passing, tsc clean
 - Plan 02 (server integration): COMPLETE — CreateGame with proper state, HookExecutor ctx.players, onRoundEnd auto-trigger, 84+ valid moves
 - Plan 03 (client scene): COMPLETE — SceneManager multi-player state, AzulScene 2-4 player boards, turn banner, score summary overlay
 - Plan 04 (game creation routes): COMPLETE — landing page, game list, createGame API wired (executed out-of-order before 02-03)
+- Verification: Puppeteer 4/4 moves pass. Bug fixes: TS stripper SCREAMING_SNAKE, white color, z-order animation (bringToFront), floor slot visibility (slotFill/slotStroke contrast)
+- Non-blocking warnings carried: PixiJS `color -7306` on re-render, FSM `SUBMIT_MOVE to stopped actor`
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 02-03-PLAN.md (client scene: multi-player turn tracking, turn banner, score summary)
-Resume file: .planning/phases/02-azul-first-playable/ (all plans complete — phase ready for final verification)
+Stopped at: Quick task 1 complete — developer menu for real-time game state manipulation.
+Resume file: none — ready for Phase 3

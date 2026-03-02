@@ -195,6 +195,7 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "ConsecutiveSkipsCurrentPlayer" integer NOT NULL DEFAULT 0;
         ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "IsPaused" boolean NOT NULL DEFAULT false;
         ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "PauseRequestedByUserId" varchar(64);
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "PendingReminderJobId" varchar(128);
         CREATE INDEX IF NOT EXISTS "IX_GameTables_TurnDeadline" ON "GameTables" ("TurnDeadline");
 
         -- Phase 4: Web Push subscriptions

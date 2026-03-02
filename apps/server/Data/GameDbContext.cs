@@ -99,6 +99,7 @@ public class GameDbContext : DbContext
             // Async mode fields (Phase 4)
             entity.Property(e => e.TimerMode).HasMaxLength(16);
             entity.Property(e => e.PauseRequestedByUserId).HasMaxLength(64);
+            entity.Property(e => e.PendingReminderJobId).HasMaxLength(128);
 
             // Index on TurnDeadline for efficient deadline checker queries
             entity.HasIndex(e => e.TurnDeadline);

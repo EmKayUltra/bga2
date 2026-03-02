@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bga2.Server.Data;
 using Bga2.Server.Models;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -283,6 +284,58 @@ public class GameService
         // This runs AFTER the DB save so only confirmed moves are broadcast.
         await _appSyncPublisher.PublishGameState(sessionId, newStateJson, session.Version);
 
+        // Step 5c: Async game notification + deadline management (non-fatal, wrapped in try/catch)
+        try
+        {
+            var gameTable = await _db.GameTables.FirstOrDefaultAsync(t => t.SessionId == sessionId);
+            if (gameTable is { IsAsync: true, Status: TableStatus.Playing })
+            {
+                // Calculate new deadline based on timer mode
+                var timerHours = gameTable.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
+                gameTable.TurnDeadline = DateTime.UtcNow.AddHours(timerHours);
+
+                // Reset consecutive skips for the new current player
+                gameTable.ConsecutiveSkipsCurrentPlayer = 0;
+
+                // Cancel any previously scheduled reminder for the OLD player's turn
+                if (gameTable.PendingReminderJobId != null)
+                {
+                    BackgroundJob.Delete(gameTable.PendingReminderJobId);
+                    gameTable.PendingReminderJobId = null;
+                }
+
+                // Determine next player's userId from the new game state
+                var (nextPlayerId, _) = ExtractPlayerAndRound(newStateJson);
+                var nextUserId = ExtractUserIdForPlayer(newStateJson, nextPlayerId);
+
+                if (!string.IsNullOrEmpty(nextUserId))
+                {
+                    // Fire-and-forget: "your turn" notification
+                    BackgroundJob.Enqueue<NotificationService>(
+                        svc => svc.NotifyYourTurn(sessionId, nextUserId, session.Version));
+
+                    // Schedule reminder as delayed job
+                    var prefs = await _db.NotificationPreferences.FindAsync(nextUserId);
+                    var reminderHours = prefs?.ReminderHoursBeforeDeadline ?? 4;
+                    if (reminderHours > 0 && reminderHours < timerHours)
+                    {
+                        var delay = TimeSpan.FromHours(timerHours - reminderHours);
+                        var reminderJobId = BackgroundJob.Schedule<NotificationService>(
+                            svc => svc.SendDeadlineReminder(sessionId, nextUserId, session.Version),
+                            delay);
+                        gameTable.PendingReminderJobId = reminderJobId;
+                    }
+                }
+
+                await _db.SaveChangesAsync();  // Save updated deadline + reminder job ID
+            }
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal: notifications are best-effort — log but never fail the move response
+            _logger.LogError(ex, "Failed to process async notification for session {SessionId}", sessionId);
+        }
+
         // Step 6: If game finished, record match results for all players
         if (IsGameFinished(newStateJson))
         {
@@ -485,6 +538,45 @@ public class GameService
         }
 
         return JsonSerializer.Serialize(ids);
+    }
+
+    /// <summary>
+    /// Extracts the userId for a given player ID from the game state JSON.
+    /// Returns null for hot-seat mode games where players have no userId,
+    /// or if the player is not found in the players array.
+    /// </summary>
+    private static string? ExtractUserIdForPlayer(string stateJson, string playerId)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(stateJson);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("players", out var playersProp) ||
+                playersProp.ValueKind != JsonValueKind.Array)
+                return null;
+
+            foreach (var player in playersProp.EnumerateArray())
+            {
+                // Match by player id (e.g., "player-0")
+                if (player.TryGetProperty("id", out var idProp) &&
+                    string.Equals(idProp.GetString(), playerId, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (player.TryGetProperty("userId", out var userIdProp) &&
+                        userIdProp.ValueKind == JsonValueKind.String)
+                    {
+                        return userIdProp.GetString();
+                    }
+                    return null;
+                }
+            }
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>

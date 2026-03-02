@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T21:35:00.000Z"
+last_updated: "2026-03-02T03:38:35.545Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 3 COMPLETE — All 6 plans done
+**Current focus:** Phase 3 COMPLETE — All 7 plans done (including gap-closure 03-07)
 
 ## Current Position
 
 Phase: 3 of 6 — COMPLETE (Multiplayer + Social)
-Plans: 6/6 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time, 03-05: Friends + Invites, 03-06: Chat + PWA)
-Status: Phase 3 complete. All plans executed.
-Last activity: 2026-03-01 — Completed 03-06: In-game chat via AppSync Events, server-side profanity filter, PWA with @vite-pwa/sveltekit
+Plans: 7/7 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time, 03-05: Friends + Invites, 03-06: Chat + PWA, 03-07: Wire real user IDs for match history [gap closure])
+Status: Phase 3 complete. All plans executed including gap-closure plan.
+Last activity: 2026-03-02 — Completed 03-07: Wire real user IDs through CreateGame/LobbyService/ExtractPlayerResults — fixes SOCL-02 (match history always empty)
 
 Progress: [████░░░░░░] 50% (3 of 6 phases complete)
 
@@ -43,6 +43,7 @@ Progress: [████░░░░░░] 50% (3 of 6 phases complete)
 | 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
 | 03-multiplayer-social | 6/6 | ~62 min | 10.3 min |
+| Phase 03-multiplayer-social P07 | 6 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,7 @@ Recent decisions affecting current work:
 - [Phase 03-06]: EnsureCreated() is all-or-nothing — explicit CREATE TABLE IF NOT EXISTS needed for Phase 3 entities when DB already existed from Phase 2
 - [Phase 03-06]: onDestroy browser guard required for document.removeEventListener — onDestroy runs during SSR in SvelteKit
 - [Phase 03-06]: PWA devOptions.enabled=false in dev — avoids service worker caching conflicts in Docker with HMR
+- [Phase 03-multiplayer-social]: userId stored on player objects alongside id (not replacing it) — id stays as game-scoped 'player-{i}' for hooks.ts/FSM compatibility; ExtractPlayerResults uses TryGetProperty userId with ValueKind == String check to handle JSON null vs absent property
 
 ### Pending Todos
 

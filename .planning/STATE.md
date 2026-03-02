@@ -71,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 02-03]: Server zone IDs are 1-indexed: player-{n}-pattern-line-{row} where n = playerIndex + 1
 - [Phase 02-03]: Score summary reads player.data.wallScore/rowBonus/colBonus/colorBonus/floorPenalty from server hooks — display only, no client-side scoring
 - [Quick-1]: DevEndpoints uses JsonNode.Parse for state mutation — avoids full deserialization into typed models for ad-hoc dev mutations
+- [Quick-2]: Client VITE_APPSYNC_HTTP_ENDPOINT defaults to http://localhost:4006 (browser) and server AppSync__HttpEndpoint defaults to http://appsync-mock:4006 (Docker network) — separate env var APPSYNC_HTTP_ENDPOINT_SERVER for server-side AWS override
+- [Quick-2]: package-lock.json committed alongside package.json so npm ci works inside Docker build (reproducible installs)
 - [Phase 03-01]: better-auth 1.5.0 type declarations have internal errors — added skipLibCheck: true to client tsconfig.json to allow builds
 - [Phase 03-01]: hooks.server.ts uses relative import (./lib/auth.js) instead of $lib alias because tsconfig.base.json paths override .svelte-kit/tsconfig.json paths
 - [Phase 03-01]: Better Auth CLI: use @better-auth/cli@1.5.0-beta.13 with --yes --config flags; @latest (1.4.x) is incompatible with better-auth 1.5.0
@@ -110,6 +112,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Developer menu for real-time game state manipulation (trigger round end, game end) | 2026-03-02 | 99e32ef | [1-developer-menu-for-real-time-game-state-](./quick/1-developer-menu-for-real-time-game-state-/) |
+| 2 | AppSync Events local mock server — Docker Compose drop-in, zero .env required | 2026-03-02 | fcefaca | [2-appsync-events-local-mock-server-drop-in](./quick/2-appsync-events-local-mock-server-drop-in/) |
 
 ## Phase 1 Accepted Gaps (deferred to Phase 2)
 

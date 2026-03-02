@@ -70,7 +70,7 @@ Plans:
   3. A player who closes their tab mid-game and reopens it sees the current board state and can continue playing — reconnection re-fetches server state before enabling moves
   4. A player has a profile with username and avatar; their match history shows completed games with results, opponents, and dates
   5. The PWA installs to the home screen from the browser install prompt and launches as a standalone app
-**Plans:** 6/6 plans complete
+**Plans:** 7 plans (6 complete, 1 gap closure)
 
 Plans:
 - [x] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
@@ -79,6 +79,7 @@ Plans:
 - [x] 03-04-PLAN.md -- Real-time gameplay (AppSync Events, idempotent moves, reconnection, optimistic locking)
 - [x] 03-05-PLAN.md -- Friends + game invites (friend requests, search, invite links, post-game prompts)
 - [x] 03-06-PLAN.md -- Chat + PWA (in-game chat with word filter, PWA manifest + service worker)
+- [ ] 03-07-PLAN.md -- Gap closure: wire real user IDs into game state for match history (SOCL-02 fix)
 
 ### Phase 4: Async + Notifications
 **Goal**: Players can start a game and take turns over days or weeks — the platform supports the dominant adult play pattern (async) with notifications that keep games moving without causing fatigue

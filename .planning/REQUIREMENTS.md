@@ -161,9 +161,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SOCL-05 | Phase 3 | Complete |
 | SOCL-06 | Phase 3 | Complete |
 | PLAT-02 | Phase 3 | Complete |
-| MULT-02 | Phase 4 | Pending |
+| MULT-02 | Phase 4 | In Progress (04-01: data layer; 04-02+: enforcement) |
 | NOTF-01 | Phase 4 | Pending |
-| NOTF-02 | Phase 4 | Pending |
+| NOTF-02 | Phase 4 | In Progress (04-01: NotificationLog entity; 04-02: deadline enforcement) |
 | NOTF-03 | Phase 4 | Pending |
 | NOTF-04 | Phase 4 | Pending |
 | AIGC-01 | Phase 5 | Pending |

@@ -93,7 +93,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Async game mode foundation (GameTable extensions, Hangfire, notification entities, lobby async support)
+- [x] 04-01-PLAN.md -- Async game mode foundation (GameTable extensions, Hangfire, notification entities, lobby async support)
 - [ ] 04-02-PLAN.md -- Notification pipeline (NotificationService, DeadlineService, email via Resend, GameService integration)
 - [ ] 04-03-PLAN.md -- Web Push (injectManifest service worker, push subscription, VAPID, notification endpoints)
 - [ ] 04-04-PLAN.md -- UI integration (notification preferences, lobby filter + My Games, timer countdown, pause flow, verification)
@@ -131,7 +131,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from 
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
-| 4. Async + Notifications | 0/4 | Planned | - |
+| 4. Async + Notifications | 1/4 | In Progress | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 

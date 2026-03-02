@@ -5,10 +5,10 @@ milestone_name: milestone
 status: unknown
 last_updated: "2026-03-02T03:43:27.223Z"
 progress:
-  total_phases: 3
+  total_phases: 6
   completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 22
+  completed_plans: 19
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 3 COMPLETE — All 7 plans done (including gap-closure 03-07)
+**Current focus:** Phase 4 IN PROGRESS — Plan 04-01 complete (async game foundation)
 
 ## Current Position
 
-Phase: 3 of 6 — COMPLETE (Multiplayer + Social)
-Plans: 7/7 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time, 03-05: Friends + Invites, 03-06: Chat + PWA, 03-07: Wire real user IDs for match history [gap closure])
-Status: Phase 3 complete. All plans executed including gap-closure plan.
-Last activity: 2026-03-02 — Completed 03-07: Wire real user IDs through CreateGame/LobbyService/ExtractPlayerResults — fixes SOCL-02 (match history always empty)
+Phase: 4 of 6 — IN PROGRESS (Async + Notifications)
+Plans: 1/4 complete (04-01: Async game foundation — GameTable fields, Hangfire, notification entities, lobby UI)
+Status: Phase 4 started. Plan 04-01 executed.
+Last activity: 2026-03-02 — Completed 04-01: Hangfire + PostgreSQL, 3 notification entities, GameTable async fields, lobby async UI
 
-Progress: [████░░░░░░] 50% (3 of 6 phases complete)
+Progress: [████░░░░░░] 58% (3.25 of 6 phases complete)
 
 ## Performance Metrics
 
@@ -98,6 +98,11 @@ Recent decisions affecting current work:
 - [Phase 03-06]: onDestroy browser guard required for document.removeEventListener — onDestroy runs during SSR in SvelteKit
 - [Phase 03-06]: PWA devOptions.enabled=false in dev — avoids service worker caching conflicts in Docker with HMR
 - [Phase 03-multiplayer-social]: userId stored on player objects alongside id (not replacing it) — id stays as game-scoped 'player-{i}' for hooks.ts/FSM compatibility; ExtractPlayerResults uses TryGetProperty userId with ValueKind == String check to handle JSON null vs absent property
+- [Phase 04-01]: Hangfire.PostgreSql chosen over IHostedService — built-in /hangfire dashboard, job retry, persistent storage across restarts
+- [Phase 04-01]: CreateTable returns tuple (GameTable?, string?) for service-layer error propagation without exception overhead
+- [Phase 04-01]: NotificationLog unique index on (SessionId, TurnVersion, UserId, Channel) ensures deadline checker idempotency
+- [Phase 04-01]: TurnDeadline calculated at StartGame (not table creation) — deadline starts when game begins, not when table is created
+- [Phase 04-01]: Quick Play stays real-time only — async games require explicit table creation with timer selection (locked decision)
 
 ### Pending Todos
 
@@ -133,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: Completed 03-06-PLAN.md — In-game chat via AppSync Events, server-side profanity filter, player reporting, PWA with @vite-pwa/sveltekit. Puppeteer verification 13/15 pass (2 by-design mismatches). 2 bugs fixed during verification (DB table creation, friends SSR crash).
-Resume file: none — Phase 3 fully complete (all 6 plans), ready for Phase 4
+Last session: 2026-03-02
+Stopped at: Completed 04-01-PLAN.md — Hangfire + PostgreSQL, 3 notification entities (PushSubscription, NotificationPreference, NotificationLog), GameTable async fields, lobby API/UI for async game creation
+Resume file: none — 04-01 complete, ready for 04-02 (DeadlineService + Hangfire recurring job)

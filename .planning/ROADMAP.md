@@ -70,7 +70,15 @@ Plans:
   3. A player who closes their tab mid-game and reopens it sees the current board state and can continue playing — reconnection re-fetches server state before enabling moves
   4. A player has a profile with username and avatar; their match history shows completed games with results, opponents, and dates
   5. The PWA installs to the home screen from the browser install prompt and launches as a standalone app
-**Plans**: TBD
+**Plans:** 6 plans in 4 waves
+
+Plans:
+- [ ] 03-01-PLAN.md -- Auth foundation (Better Auth + JWT Bearer + DB entity scaffolding)
+- [ ] 03-02-PLAN.md -- Lobby + table management (create/join/start tables, waiting room, Quick Play)
+- [ ] 03-03-PLAN.md -- User profiles + match history (avatar selector, stats, game results)
+- [ ] 03-04-PLAN.md -- Real-time gameplay (AppSync Events, idempotent moves, reconnection, optimistic locking)
+- [ ] 03-05-PLAN.md -- Friends + game invites (friend requests, search, invite links, post-game prompts)
+- [ ] 03-06-PLAN.md -- Chat + PWA (in-game chat with word filter, PWA manifest + service worker)
 
 ### Phase 4: Async + Notifications
 **Goal**: Players can start a game and take turns over days or weeks — the platform supports the dominant adult play pattern (async) with notifications that keep games moving without causing fatigue
@@ -115,11 +123,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (can parallel-track f
 |-------|----------------|--------|-----------|
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
-| 3. Multiplayer + Social | TBD | Not started | - |
+| 3. Multiplayer + Social | 0/6 | Planned   | - |
 | 4. Async + Notifications | TBD | Not started | - |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-01 — Phase 2 planned (4 plans in 4 waves)*
+*Last updated: 2026-03-01 — Phase 3 planned (6 plans in 4 waves)*

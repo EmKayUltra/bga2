@@ -9,9 +9,13 @@ const config = {
 
 	kit: {
 		// adapter-node: suitable for Docker deployment
-		// adapter-auto: switches based on deploy target
-		adapter: adapter()
-	}
+		adapter: adapter(),
+		// Disable SvelteKit's built-in service worker registration.
+		// @vite-pwa/sveltekit handles service worker registration via workbox.
+		serviceWorker: {
+			register: false,
+		},
+	},
 };
 
 export default config;

@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
+	import { pwaInfo } from 'virtual:pwa-info';
 
 	let { children } = $props();
 
 	// Reactive session state from Better Auth
 	const session = authClient.useSession();
+
+	// PWA web manifest link tag — injected by @vite-pwa/sveltekit
+	// undefined in dev when devOptions.enabled is false
+	let webManifestLink = $derived(pwaInfo ? pwaInfo.webManifest.linkTag : '');
 
 	async function handleSignOut() {
 		await authClient.signOut();
@@ -12,6 +17,10 @@
 		window.location.href = '/';
 	}
 </script>
+
+<svelte:head>
+	{@html webManifestLink}
+</svelte:head>
 
 <div class="app">
 	<nav class="navbar">

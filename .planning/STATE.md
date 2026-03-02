@@ -110,6 +110,7 @@ Recent decisions affecting current work:
 - [Phase 04-03]: notification tag bga2-turn with renotify=true collapses duplicate turn notifications, still vibrates/sounds
 - [Phase 04-02]: VapidAuthentication passed per-call to RequestPushMessageDeliveryAsync — thread-safe for concurrent Hangfire jobs
 - [Phase 04-02]: PendingReminderJobId stored on GameTable — BackgroundJob.Schedule job ID stored for cancellation via BackgroundJob.Delete on next player move
+- [Quick-3]: SSR API_BASE uses private env var API_SERVER_URL (no VITE_ prefix) pointing to server:8080; browser uses VITE_API_URL/localhost:8080 — browser ternary via $app/environment
 
 ### Pending Todos
 
@@ -127,6 +128,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 1 | Developer menu for real-time game state manipulation (trigger round end, game end) | 2026-03-02 | 99e32ef | [1-developer-menu-for-real-time-game-state-](./quick/1-developer-menu-for-real-time-game-state-/) |
 | 2 | AppSync Events local mock server — Docker Compose drop-in, zero .env required | 2026-03-02 | fcefaca | [2-appsync-events-local-mock-server-drop-in](./quick/2-appsync-events-local-mock-server-drop-in/) |
+| 3 | Fix Vite API URL Docker networking — SSR-aware API_BASE + remove LocalStack | 2026-03-02 | ddb8fc1 | [3-fix-vite-api-url-docker-networking-and-r](./quick/3-fix-vite-api-url-docker-networking-and-r/) |
 
 ## Phase 1 Accepted Gaps (deferred to Phase 2)
 

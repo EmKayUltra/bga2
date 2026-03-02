@@ -27,6 +27,7 @@ public class GameDbContext : DbContext
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<NotificationOptOut> NotificationOptOuts => Set<NotificationOptOut>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,7 +100,7 @@ public class GameDbContext : DbContext
             // Async mode fields (Phase 4)
             entity.Property(e => e.TimerMode).HasMaxLength(16);
             entity.Property(e => e.PauseRequestedByUserId).HasMaxLength(64);
-            entity.Property(e => e.PendingReminderJobId).HasMaxLength(128);
+            entity.Property(e => e.PendingReminderJobIds).HasMaxLength(512).HasColumnType("jsonb");
 
             // Index on TurnDeadline for efficient deadline checker queries
             entity.HasIndex(e => e.TurnDeadline);
@@ -275,8 +276,34 @@ public class GameDbContext : DbContext
                 .HasMaxLength(64)
                 .IsRequired();
 
+            entity.Property(e => e.DeliveryMode)
+                .HasMaxLength(16)
+                .HasDefaultValue("immediate");
+
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("NOW()");
+        });
+
+        // ── NotificationOptOut ────────────────────────────────────────────────
+        modelBuilder.Entity<NotificationOptOut>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("NOW()");
+
+            // Unique: one opt-out per user per table
+            entity.HasIndex(e => new { e.UserId, e.TableId }).IsUnique();
+
+            // FK to GameTable with cascade delete
+            entity.HasOne<GameTable>()
+                .WithMany()
+                .HasForeignKey(e => e.TableId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── NotificationLog ──────────────────────────────────────────────────

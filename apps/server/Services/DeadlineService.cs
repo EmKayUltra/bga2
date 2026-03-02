@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Bga2.Server.Data;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,13 @@ public class DeadlineService
     {
         try
         {
+            // Safety guard: unlimited games should never have a TurnDeadline, but skip just in case
+            if (table.TimerMode == "unlimited")
+            {
+                _logger.LogWarning("Table {TableId} has TimerMode 'unlimited' but reached deadline processing — skipping", table.Id);
+                return;
+            }
+
             table.ConsecutiveSkipsCurrentPlayer++;
 
             // ── Forfeit check ─────────────────────────────────────────────────
@@ -108,14 +116,21 @@ public class DeadlineService
             session.Version++;
             session.UpdatedAt = DateTime.UtcNow;
 
+            // Cancel all previously scheduled reminders
+            if (!string.IsNullOrEmpty(table.PendingReminderJobIds))
+            {
+                var oldJobIds = JsonSerializer.Deserialize<List<string>>(table.PendingReminderJobIds) ?? [];
+                foreach (var oldJobId in oldJobIds)
+                    BackgroundJob.Delete(oldJobId);
+                table.PendingReminderJobIds = null;
+            }
+
             // Update deadline for the new current player
             var timerHours = table.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
             table.TurnDeadline = DateTime.UtcNow.AddHours(timerHours);
 
             // Reset skip counter — new player starts fresh
             table.ConsecutiveSkipsCurrentPlayer = 0;
-
-            await _db.SaveChangesAsync();
 
             // Find the next player's userId from the game state
             var nextUserId = ExtractUserIdForPlayerIndex(newStateJson, nextPlayerIndex);
@@ -125,9 +140,26 @@ public class DeadlineService
                 BackgroundJob.Enqueue<NotificationService>(
                     svc => svc.NotifyYourTurn(table.SessionId.Value, nextUserId, session.Version));
 
+                // Schedule escalating reminders at 48h, 24h, and 1h before deadline
+                var reminderOffsets = new[] { 48, 24, 1 };  // hours before deadline
+                var newJobIds = new List<string>();
+                foreach (var offsetHours in reminderOffsets)
+                {
+                    if (offsetHours < timerHours)  // Only schedule if offset is within the timer window
+                    {
+                        var delay = TimeSpan.FromHours(timerHours - offsetHours);
+                        var jobId = BackgroundJob.Schedule<NotificationService>(
+                            svc => svc.SendDeadlineReminder(table.SessionId.Value, nextUserId, session.Version),
+                            delay);
+                        newJobIds.Add(jobId);
+                    }
+                }
+                if (newJobIds.Count > 0)
+                    table.PendingReminderJobIds = JsonSerializer.Serialize(newJobIds);
+
                 _logger.LogInformation(
-                    "Table {TableId}: advanced turn to player index {NextIndex} (userId={UserId}), deadline={Deadline}",
-                    table.Id, nextPlayerIndex, nextUserId, table.TurnDeadline);
+                    "Table {TableId}: advanced turn to player index {NextIndex} (userId={UserId}), deadline={Deadline}, reminders={ReminderCount}",
+                    table.Id, nextPlayerIndex, nextUserId, table.TurnDeadline, newJobIds.Count);
             }
             else
             {
@@ -135,6 +167,8 @@ public class DeadlineService
                     "Table {TableId}: advanced turn to player index {NextIndex} (no userId — hot-seat mode), deadline={Deadline}",
                     table.Id, nextPlayerIndex, table.TurnDeadline);
             }
+
+            await _db.SaveChangesAsync();
         }
         catch (Exception ex)
         {

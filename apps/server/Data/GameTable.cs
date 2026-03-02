@@ -27,7 +27,7 @@ public class GameTable
     public int ConsecutiveSkipsCurrentPlayer { get; set; }
     public bool IsPaused { get; set; }
     public string? PauseRequestedByUserId { get; set; }
-    public string? PendingReminderJobId { get; set; }   // Hangfire job ID for cancellation when player moves
+    public string? PendingReminderJobIds { get; set; }  // JSON array of Hangfire job IDs for escalating reminders
 }
 
 public enum TableStatus { Waiting, Playing, Finished }

@@ -290,44 +290,59 @@ public class GameService
             var gameTable = await _db.GameTables.FirstOrDefaultAsync(t => t.SessionId == sessionId);
             if (gameTable is { IsAsync: true, Status: TableStatus.Playing })
             {
-                // Calculate new deadline based on timer mode
-                var timerHours = gameTable.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
-                gameTable.TurnDeadline = DateTime.UtcNow.AddHours(timerHours);
+                // Cancel all previously scheduled reminders
+                if (!string.IsNullOrEmpty(gameTable.PendingReminderJobIds))
+                {
+                    var oldJobIds = System.Text.Json.JsonSerializer.Deserialize<List<string>>(gameTable.PendingReminderJobIds) ?? [];
+                    foreach (var oldJobId in oldJobIds)
+                        BackgroundJob.Delete(oldJobId);
+                }
+                gameTable.PendingReminderJobIds = null;
 
                 // Reset consecutive skips for the new current player
                 gameTable.ConsecutiveSkipsCurrentPlayer = 0;
 
-                // Cancel any previously scheduled reminder for the OLD player's turn
-                if (gameTable.PendingReminderJobId != null)
+                // For unlimited games: no deadline, no reminders
+                if (gameTable.TimerMode == "unlimited")
                 {
-                    BackgroundJob.Delete(gameTable.PendingReminderJobId);
-                    gameTable.PendingReminderJobId = null;
+                    gameTable.TurnDeadline = null;
                 }
-
-                // Determine next player's userId from the new game state
-                var (nextPlayerId, _) = ExtractPlayerAndRound(newStateJson);
-                var nextUserId = ExtractUserIdForPlayer(newStateJson, nextPlayerId);
-
-                if (!string.IsNullOrEmpty(nextUserId))
+                else
                 {
-                    // Fire-and-forget: "your turn" notification
-                    BackgroundJob.Enqueue<NotificationService>(
-                        svc => svc.NotifyYourTurn(sessionId, nextUserId, session.Version));
+                    // Calculate new deadline based on timer mode
+                    var timerHours = gameTable.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
+                    gameTable.TurnDeadline = DateTime.UtcNow.AddHours(timerHours);
 
-                    // Schedule reminder as delayed job
-                    var prefs = await _db.NotificationPreferences.FindAsync(nextUserId);
-                    var reminderHours = prefs?.ReminderHoursBeforeDeadline ?? 4;
-                    if (reminderHours > 0 && reminderHours < timerHours)
+                    // Determine next player's userId from the new game state
+                    var (nextPlayerId, _) = ExtractPlayerAndRound(newStateJson);
+                    var nextUserId = ExtractUserIdForPlayer(newStateJson, nextPlayerId);
+
+                    if (!string.IsNullOrEmpty(nextUserId))
                     {
-                        var delay = TimeSpan.FromHours(timerHours - reminderHours);
-                        var reminderJobId = BackgroundJob.Schedule<NotificationService>(
-                            svc => svc.SendDeadlineReminder(sessionId, nextUserId, session.Version),
-                            delay);
-                        gameTable.PendingReminderJobId = reminderJobId;
+                        // Fire-and-forget: "your turn" notification
+                        BackgroundJob.Enqueue<NotificationService>(
+                            svc => svc.NotifyYourTurn(sessionId, nextUserId, session.Version));
+
+                        // Schedule escalating reminders at 48h, 24h, and 1h before deadline
+                        var reminderOffsets = new[] { 48, 24, 1 };  // hours before deadline
+                        var newJobIds = new List<string>();
+                        foreach (var offsetHours in reminderOffsets)
+                        {
+                            if (offsetHours < timerHours)  // Only schedule if offset is within the timer window
+                            {
+                                var delay = TimeSpan.FromHours(timerHours - offsetHours);
+                                var jobId = BackgroundJob.Schedule<NotificationService>(
+                                    svc => svc.SendDeadlineReminder(sessionId, nextUserId, session.Version),
+                                    delay);
+                                newJobIds.Add(jobId);
+                            }
+                        }
+                        if (newJobIds.Count > 0)
+                            gameTable.PendingReminderJobIds = System.Text.Json.JsonSerializer.Serialize(newJobIds);
                     }
                 }
 
-                await _db.SaveChangesAsync();  // Save updated deadline + reminder job ID
+                await _db.SaveChangesAsync();  // Save updated deadline + reminder job IDs
             }
         }
         catch (Exception ex)

@@ -78,6 +78,72 @@ public class NotificationService
     }
 
     /// <summary>
+    /// Sends a batch digest email to all users with DeliveryMode = "daily_digest".
+    /// Called by Hangfire recurring job daily at 09:00 UTC.
+    /// </summary>
+    public async Task SendDigestBatch()
+    {
+        // Find all users with DeliveryMode = "daily_digest"
+        var digestUsers = await _db.NotificationPreferences
+            .Where(p => p.DeliveryMode == "daily_digest")
+            .Select(p => p.UserId)
+            .ToListAsync();
+
+        foreach (var userId in digestUsers)
+        {
+            // Find pending digest entries (NotificationLog with channel = "email-pending-digest")
+            var pending = await _db.NotificationLogs
+                .Where(l => l.UserId == userId && l.Channel == "email-pending-digest")
+                .OrderBy(l => l.SentAt)
+                .ToListAsync();
+
+            if (pending.Count == 0) continue;
+
+            // Build a single digest email with all pending game turns
+            var sessionIds = pending.Select(l => l.SessionId).Distinct().ToList();
+
+            var userEmail = await GetUserEmail(userId);
+            if (string.IsNullOrEmpty(userEmail)) continue;
+
+            var gameLines = string.Join("", sessionIds.Select(sid =>
+                $"<li><a href=\"/game/{sid}\">Game {sid.ToString()[..8]}...</a></li>"));
+
+            var htmlBody = $"<p>Hi,</p><p>You have {sessionIds.Count} game(s) waiting for your turn:</p><ul>{gameLines}</ul>";
+
+            // Send the digest email
+            try
+            {
+                var apiToken = Environment.GetEnvironmentVariable("RESEND_APITOKEN");
+                if (!string.IsNullOrEmpty(apiToken))
+                {
+                    var fromAddress = apiToken.StartsWith("re_test_", StringComparison.OrdinalIgnoreCase)
+                        ? "onboarding@resend.dev"
+                        : "BGA2 <noreply@bga2.dev>";
+                    var message = new EmailMessage
+                    {
+                        From = fromAddress,
+                        Subject = $"BGA2 Daily Digest — {sessionIds.Count} game(s) need your move",
+                        HtmlBody = htmlBody,
+                    };
+                    message.To.Add(userEmail);
+                    await _resend.EmailSendAsync(message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send digest email to user {UserId}", userId);
+                continue;  // Don't delete pending records if send failed
+            }
+
+            // Delete pending records (they've been sent)
+            _db.NotificationLogs.RemoveRange(pending);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Sent digest email to {UserId} with {Count} game(s)", userId, sessionIds.Count);
+        }
+    }
+
+    /// <summary>
     /// Internal dispatch method shared by NotifyYourTurn and SendDeadlineReminder.
     /// </summary>
     private async Task SendNotification(
@@ -91,6 +157,18 @@ public class NotificationService
         string pushTitle,
         string pushBody)
     {
+        // Check per-game opt-out
+        var table = await _db.GameTables.FirstOrDefaultAsync(t => t.SessionId == sessionId);
+        if (table != null)
+        {
+            var optedOut = await _db.NotificationOptOuts.AnyAsync(o => o.UserId == userId && o.TableId == table.Id);
+            if (optedOut)
+            {
+                _logger.LogDebug("User {UserId} has opted out of notifications for table {TableId} — skipping", userId, table.Id);
+                return;
+            }
+        }
+
         // Load user preferences (default all-enabled if no row)
         var prefs = await _db.NotificationPreferences.FindAsync(userId);
         var emailEnabled = prefs?.EmailEnabled ?? true;
@@ -99,22 +177,52 @@ public class NotificationService
         // ── Email ────────────────────────────────────────────────────────────
         if (emailEnabled)
         {
-            // Idempotency: skip if already logged
-            var emailAlreadySent = await _db.NotificationLogs.AnyAsync(l =>
-                l.SessionId == sessionId &&
-                l.TurnVersion == turnVersion &&
-                l.UserId == userId &&
-                l.Channel == emailChannel);
-
-            if (!emailAlreadySent)
+            // Check delivery mode: daily_digest defers email, immediate sends now
+            if (prefs?.DeliveryMode == "daily_digest")
             {
-                await TrySendEmail(sessionId, userId, turnVersion, emailChannel, emailSubject, emailBodyTemplate);
+                // Store as pending digest entry instead of sending immediately
+                var digestChannel = "email-pending-digest";
+                var digestAlreadyLogged = await _db.NotificationLogs.AnyAsync(l =>
+                    l.SessionId == sessionId &&
+                    l.TurnVersion == turnVersion &&
+                    l.UserId == userId &&
+                    l.Channel == digestChannel);
+
+                if (!digestAlreadyLogged)
+                {
+                    _db.NotificationLogs.Add(new NotificationLog
+                    {
+                        Id = Guid.NewGuid(),
+                        SessionId = sessionId,
+                        TurnVersion = turnVersion,
+                        UserId = userId,
+                        Channel = digestChannel,
+                        SentAt = DateTime.UtcNow,
+                    });
+                    await _db.SaveChangesAsync();
+                    _logger.LogDebug("Queued digest email for user {UserId} session {SessionId}", userId, sessionId);
+                }
             }
             else
             {
-                _logger.LogDebug(
-                    "Skipping duplicate {Channel} notification for session {SessionId} version {TurnVersion} user {UserId}",
-                    emailChannel, sessionId, turnVersion, userId);
+                // Immediate mode: send email now
+                // Idempotency: skip if already logged
+                var emailAlreadySent = await _db.NotificationLogs.AnyAsync(l =>
+                    l.SessionId == sessionId &&
+                    l.TurnVersion == turnVersion &&
+                    l.UserId == userId &&
+                    l.Channel == emailChannel);
+
+                if (!emailAlreadySent)
+                {
+                    await TrySendEmail(sessionId, userId, turnVersion, emailChannel, emailSubject, emailBodyTemplate);
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "Skipping duplicate {Channel} notification for session {SessionId} version {TurnVersion} user {UserId}",
+                        emailChannel, sessionId, turnVersion, userId);
+                }
             }
         }
 

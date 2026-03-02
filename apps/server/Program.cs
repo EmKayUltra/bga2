@@ -196,6 +196,7 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "IsPaused" boolean NOT NULL DEFAULT false;
         ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "PauseRequestedByUserId" varchar(64);
         ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "PendingReminderJobId" varchar(128);
+        ALTER TABLE "GameTables" ADD COLUMN IF NOT EXISTS "PendingReminderJobIds" jsonb;
         CREATE INDEX IF NOT EXISTS "IX_GameTables_TurnDeadline" ON "GameTables" ("TurnDeadline");
 
         -- Phase 4: Web Push subscriptions
@@ -232,6 +233,19 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE UNIQUE INDEX IF NOT EXISTS "IX_NotificationLogs_Idempotency" ON "NotificationLogs" ("SessionId", "TurnVersion", "UserId", "Channel");
         CREATE INDEX IF NOT EXISTS "IX_NotificationLogs_SessionId" ON "NotificationLogs" ("SessionId");
+
+        -- Phase 4 gap closure: Delivery mode on notification preferences
+        ALTER TABLE "NotificationPreferences" ADD COLUMN IF NOT EXISTS "DeliveryMode" varchar(16) NOT NULL DEFAULT 'immediate';
+
+        -- Phase 4 gap closure: Per-game notification opt-out
+        CREATE TABLE IF NOT EXISTS "NotificationOptOuts" (
+            "Id" uuid NOT NULL DEFAULT gen_random_uuid(),
+            "UserId" varchar(64) NOT NULL,
+            "TableId" uuid NOT NULL,
+            "CreatedAt" timestamptz NOT NULL DEFAULT NOW(),
+            CONSTRAINT "PK_NotificationOptOuts" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_NotificationOptOuts_UserId_TableId" ON "NotificationOptOuts" ("UserId", "TableId");
         """);
 }
 
@@ -250,6 +264,12 @@ RecurringJob.AddOrUpdate<DeadlineService>(
     "deadline-checker",
     svc => svc.ProcessExpiredDeadlines(),
     "*/5 * * * *");
+
+// Recurring job: send daily digest emails at 09:00 UTC
+RecurringJob.AddOrUpdate<NotificationService>(
+    "digest-sender",
+    svc => svc.SendDigestBatch(),
+    "0 9 * * *");
 
 app.UseCors("DevCors");
 

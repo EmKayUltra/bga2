@@ -108,9 +108,9 @@ public class LobbyService
         // Validate async parameters
         if (req.IsAsync)
         {
-            var validModes = new[] { "fast", "normal", "slow" };
+            var validModes = new[] { "fast", "normal", "slow", "unlimited" };
             if (req.TimerMode == null || !Array.Exists(validModes, m => m == req.TimerMode))
-                return (null, "Async games require a valid timer mode: 'fast', 'normal', or 'slow'");
+                return (null, "Async games require a valid timer mode: 'fast', 'normal', 'slow', or 'unlimited'");
 
             if (req.SkipThreshold < 0)
                 return (null, "Skip threshold must be >= 0");
@@ -342,11 +342,12 @@ public class LobbyService
         table.UpdatedAt = DateTime.UtcNow;
 
         // For async tables, set the initial TurnDeadline based on the timer preset
-        if (table.IsAsync && table.TimerMode != null)
+        if (table.IsAsync && table.TimerMode != null && table.TimerMode != "unlimited")
         {
             var hours = table.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
             table.TurnDeadline = DateTime.UtcNow.AddHours(hours);
         }
+        // else: unlimited or real-time => TurnDeadline stays null
 
         await _db.SaveChangesAsync();
 
@@ -598,8 +599,8 @@ public class LobbyService
 
         table.IsPaused = false;
         table.PauseRequestedByUserId = null;
-        // Recalculate deadline from timer mode
-        if (table.TimerMode != null)
+        // Recalculate deadline from timer mode (unlimited games keep TurnDeadline=null)
+        if (table.TimerMode != null && table.TimerMode != "unlimited")
         {
             var hours = table.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
             table.TurnDeadline = DateTime.UtcNow.AddHours(hours);

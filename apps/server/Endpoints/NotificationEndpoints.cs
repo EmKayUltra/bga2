@@ -36,6 +36,17 @@ public static class NotificationEndpoints
             .WithName("UpdateNotificationPreferences")
             .WithSummary("Update notification preferences for the current user")
             .RequireAuthorization();
+
+        // Per-game notification opt-out
+        notifications.MapPost("/opt-out/{tableId:guid}", OptOutGame)
+            .WithName("OptOutGame")
+            .WithSummary("Opt out of notifications for a specific game")
+            .RequireAuthorization();
+
+        notifications.MapDelete("/opt-out/{tableId:guid}", OptInGame)
+            .WithName("OptInGame")
+            .WithSummary("Opt back in to notifications for a specific game")
+            .RequireAuthorization();
     }
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -112,6 +123,7 @@ public static class NotificationEndpoints
                 emailEnabled = true,
                 pushEnabled = true,
                 reminderHoursBeforeDeadline = 4,
+                deliveryMode = "immediate",
             });
         }
 
@@ -120,6 +132,7 @@ public static class NotificationEndpoints
             emailEnabled = prefs.EmailEnabled,
             pushEnabled = prefs.PushEnabled,
             reminderHoursBeforeDeadline = prefs.ReminderHoursBeforeDeadline,
+            deliveryMode = prefs.DeliveryMode,
         });
     }
 
@@ -143,6 +156,7 @@ public static class NotificationEndpoints
                 EmailEnabled = req.EmailEnabled,
                 PushEnabled = req.PushEnabled,
                 ReminderHoursBeforeDeadline = req.ReminderHoursBeforeDeadline,
+                DeliveryMode = req.DeliveryMode,
                 UpdatedAt = DateTime.UtcNow,
             });
         }
@@ -152,11 +166,59 @@ public static class NotificationEndpoints
             prefs.EmailEnabled = req.EmailEnabled;
             prefs.PushEnabled = req.PushEnabled;
             prefs.ReminderHoursBeforeDeadline = req.ReminderHoursBeforeDeadline;
+            prefs.DeliveryMode = req.DeliveryMode;
             prefs.UpdatedAt = DateTime.UtcNow;
         }
 
         await db.SaveChangesAsync();
         return Results.Ok(new { updated = true });
+    }
+
+    private static async Task<IResult> OptOutGame(
+        Guid tableId,
+        GameDbContext db,
+        HttpContext ctx)
+    {
+        var userId = ExtractUserId(ctx);
+        if (userId == null) return Results.Unauthorized();
+
+        // Check if already opted out
+        var existing = await db.NotificationOptOuts
+            .FirstOrDefaultAsync(o => o.UserId == userId && o.TableId == tableId);
+
+        if (existing == null)
+        {
+            db.NotificationOptOuts.Add(new NotificationOptOut
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                TableId = tableId,
+                CreatedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        return Results.Ok(new { optedOut = true });
+    }
+
+    private static async Task<IResult> OptInGame(
+        Guid tableId,
+        GameDbContext db,
+        HttpContext ctx)
+    {
+        var userId = ExtractUserId(ctx);
+        if (userId == null) return Results.Unauthorized();
+
+        var optOut = await db.NotificationOptOuts
+            .FirstOrDefaultAsync(o => o.UserId == userId && o.TableId == tableId);
+
+        if (optOut != null)
+        {
+            db.NotificationOptOuts.Remove(optOut);
+            await db.SaveChangesAsync();
+        }
+
+        return Results.NoContent();
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -181,4 +243,5 @@ public record UnsubscribePushRequest(string Endpoint);
 public record UpdatePreferencesRequest(
     bool EmailEnabled,
     bool PushEnabled,
-    int ReminderHoursBeforeDeadline);
+    int ReminderHoursBeforeDeadline,
+    string DeliveryMode = "immediate");

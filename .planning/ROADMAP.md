@@ -90,7 +90,7 @@ Plans:
   2. When it becomes a player's turn in an async game, they receive an email notification; escalating reminders fire at 48h, 24h, and final hour before a deadline
   3. A player who has installed the PWA receives a Web Push notification when it is their turn, even when the browser is closed
   4. A player can configure their notification preferences (immediate vs. daily digest, per-game opt-out) and those preferences are respected by all notification channels
-**Plans:** 4 plans
+**Plans:** 2/4 plans executed
 
 Plans:
 - [x] 04-01-PLAN.md -- Async game mode foundation (GameTable extensions, Hangfire, notification entities, lobby async support)
@@ -131,7 +131,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from 
 | 1. Engine Foundation | 7/7 auto (checkpoint pending) | Checkpoint | - |
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
-| 4. Async + Notifications | 1/4 | In Progress | - |
+| 4. Async + Notifications | 2/4 | In Progress|  |
 | 5. AI Game Creation Toolkit | TBD | Not started | - |
 | 6. Player Platform | TBD | Not started | - |
 

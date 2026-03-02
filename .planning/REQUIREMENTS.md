@@ -50,7 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **NOTF-01**: User receives email notification when it's their turn (async games)
 - [ ] **NOTF-02**: Turn timer enforces deadlines with escalating reminders (48h, 24h, final hour)
-- [ ] **NOTF-03**: User receives Web Push notification via PWA service worker
+- [x] **NOTF-03**: User receives Web Push notification via PWA service worker
 - [ ] **NOTF-04**: User can configure notification preferences (immediate vs digest, per-game)
 
 ### Player Experience
@@ -164,7 +164,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MULT-02 | Phase 4 | In Progress (04-01: data layer; 04-02+: enforcement) |
 | NOTF-01 | Phase 4 | Pending |
 | NOTF-02 | Phase 4 | In Progress (04-01: NotificationLog entity; 04-02: deadline enforcement) |
-| NOTF-03 | Phase 4 | Pending |
+| NOTF-03 | Phase 4 | Complete |
 | NOTF-04 | Phase 4 | Pending |
 | AIGC-01 | Phase 5 | Pending |
 | AIGC-02 | Phase 5 | Pending |

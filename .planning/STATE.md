@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T03:43:27.223Z"
+last_updated: "2026-03-02T04:20:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 22
-  completed_plans: 19
+  completed_plans: 21
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 4 IN PROGRESS — Plan 04-01 complete (async game foundation)
+**Current focus:** Phase 4 IN PROGRESS — Plan 04-03 complete (Web Push client infrastructure)
 
 ## Current Position
 
 Phase: 4 of 6 — IN PROGRESS (Async + Notifications)
-Plans: 1/4 complete (04-01: Async game foundation — GameTable fields, Hangfire, notification entities, lobby UI)
-Status: Phase 4 started. Plan 04-01 executed.
-Last activity: 2026-03-02 — Completed 04-01: Hangfire + PostgreSQL, 3 notification entities, GameTable async fields, lobby async UI
+Plans: 3/4 complete (04-01: async foundation, 04-02: deadline/email service, 04-03: Web Push client infrastructure)
+Status: Phase 4 in progress. Plans 04-01, 04-02, 04-03 executed.
+Last activity: 2026-03-02 — Completed 04-03: injectManifest service worker, push subscription helper, notificationApi client, NotificationEndpoints server
 
-Progress: [████░░░░░░] 58% (3.25 of 6 phases complete)
+Progress: [█████░░░░░] 63% (3.75 of 6 phases complete)
 
 ## Performance Metrics
 
@@ -103,6 +103,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: NotificationLog unique index on (SessionId, TurnVersion, UserId, Channel) ensures deadline checker idempotency
 - [Phase 04-01]: TurnDeadline calculated at StartGame (not table creation) — deadline starts when game begins, not when table is created
 - [Phase 04-01]: Quick Play stays real-time only — async games require explicit table creation with timer selection (locked decision)
+- [Phase 04-03]: injectManifest strategy replaces generateSW so service worker can include push/notificationclick handlers
+- [Phase 04-03]: workbox packages added as explicit devDeps even though @vite-pwa/sveltekit has transitive deps — direct TS imports require them in scope
+- [Phase 04-03]: GetPreferences returns inline defaults (not DB row) for new users — avoids forced insert on first GET
+- [Phase 04-03]: notification tag bga2-turn with renotify=true collapses duplicate turn notifications, still vibrates/sounds
 
 ### Pending Todos
 
@@ -139,5 +143,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 04-01-PLAN.md — Hangfire + PostgreSQL, 3 notification entities (PushSubscription, NotificationPreference, NotificationLog), GameTable async fields, lobby API/UI for async game creation
-Resume file: none — 04-01 complete, ready for 04-02 (DeadlineService + Hangfire recurring job)
+Stopped at: Completed 04-03-PLAN.md — injectManifest service worker with push/notificationclick handlers, pushSubscription.ts helper, notificationApi.ts client, NotificationEndpoints server
+Resume file: none — 04-03 complete, ready for 04-04 (notification settings UI)

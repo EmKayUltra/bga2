@@ -19,7 +19,9 @@
 
 		<div class="nav-actions">
 			{#if $session?.data?.user}
-				<span class="nav-username">{($session.data.user as { username?: string }).username ?? $session.data.user.name}</span>
+				{@const username = ($session.data.user as { username?: string }).username ?? $session.data.user.name}
+				<a href="/profile/{username}" class="nav-link nav-link--user">{username}</a>
+				<a href="/settings" class="nav-link">Settings</a>
 				<button class="nav-button" onclick={handleSignOut}>Sign out</button>
 			{:else}
 				<a href="/auth/login" class="nav-link">Sign in</a>
@@ -66,10 +68,14 @@
 		gap: 0.75rem;
 	}
 
-	.nav-username {
+	.nav-link--user {
 		font-size: 0.9375rem;
-		font-weight: 500;
-		color: #374151;
+		font-weight: 600;
+		color: #1e293b;
+	}
+
+	.nav-link--user:hover {
+		color: #2563eb;
 	}
 
 	.nav-button {

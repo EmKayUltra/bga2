@@ -38,7 +38,7 @@ export async function subscribeToPush(vapidPublicKey: string): Promise<PushSubsc
 	try {
 		return await registration.pushManager.subscribe({
 			userVisibleOnly: true,
-			applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+			applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
 		});
 	} catch (err) {
 		console.error('Push subscription failed:', err);

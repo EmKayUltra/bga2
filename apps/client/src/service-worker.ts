@@ -38,7 +38,7 @@ self.addEventListener('push', (event) => {
 			data: { url: data.url ?? '/' },
 			tag: 'bga2-turn',   // Replace previous turn notification (avoid stacking)
 			renotify: true,     // Vibrate/sound even when replacing same tag
-		})
+		} as NotificationOptions)
 	);
 });
 

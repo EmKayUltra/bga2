@@ -41,8 +41,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SOCL-01**: User can create profile with username and avatar
 - [x] **SOCL-02**: User can view match history with results, opponents, dates
-- [ ] **SOCL-03**: User can add/remove friends
-- [ ] **SOCL-04**: User can invite friends to a game
+- [x] **SOCL-03**: User can add/remove friends
+- [x] **SOCL-04**: User can invite friends to a game
 - [x] **SOCL-05**: User can create private invite-only tables
 - [ ] **SOCL-06**: User can send text chat messages during and after games
 
@@ -156,8 +156,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MULT-06 | Phase 3 | Complete |
 | SOCL-01 | Phase 3 | Complete |
 | SOCL-02 | Phase 3 | Complete |
-| SOCL-03 | Phase 3 | Pending |
-| SOCL-04 | Phase 3 | Pending |
+| SOCL-03 | Phase 3 | Complete |
+| SOCL-04 | Phase 3 | Complete |
 | SOCL-05 | Phase 3 | Complete |
 | SOCL-06 | Phase 3 | Pending |
 | PLAT-02 | Phase 3 | Pending |

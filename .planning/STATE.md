@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-02T01:56:47.277Z"
+status: in_progress
+last_updated: "2026-03-02T01:57:08Z"
 progress:
-  total_phases: 3
+  total_phases: 6
   completed_phases: 2
   total_plans: 17
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 3 in progress — Plans 01-04 complete, Plan 05 remains
+**Current focus:** Phase 3 COMPLETE — All 5 plans done
 
 ## Current Position
 
-Phase: 3 of 6 — IN PROGRESS (Multiplayer + Social)
-Plans: 4/5 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time)
-Status: Phase 3 in progress. Plans 01-04 complete. Next: Plan 05 (Notifications + Invites)
-Last activity: 2026-03-02 — Completed 03-04: AppSync Events real-time game sync, idempotent moves, reconnection
+Phase: 3 of 6 — COMPLETE (Multiplayer + Social)
+Plans: 5/5 complete (03-01: Auth + entity scaffolding, 03-02: Lobby, 03-03: Profiles + Match History, 03-04: Real-time, 03-05: Friends + Invites)
+Status: Phase 3 complete. All plans executed.
+Last activity: 2026-03-02 — Completed 03-05: Friends system, HMAC invite links, post-game friend prompt
 
-Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
+Progress: [████░░░░░░] 50% (3 of 6 phases complete)
 
 ## Performance Metrics
 
@@ -42,8 +42,7 @@ Progress: [███░░░░░░░] 33% (2 of 6 phases complete)
 |-------|-------|-------|----------|
 | 01-engine-foundation | 7/7 | ~45 min | 6.4 min |
 | 02-azul-first-playable | 4/4 | ~35 min | 8.75 min |
-| 03-multiplayer-social | 3/5 | ~35 min | 11.7 min |
-| Phase 03 P04 | 7 | 2 tasks | 12 files |
+| 03-multiplayer-social | 5/5 | ~55 min | 11 min |
 
 ## Accumulated Context
 
@@ -86,6 +85,9 @@ Recent decisions affecting current work:
 - [Phase 03]: AppSync publish is best-effort: errors caught/logged, REST response already confirmed move
 - [Phase 03]: 409 Conflict for DbUpdateConcurrencyException (vs 400) so client can distinguish race conditions from invalid moves
 - [Phase 03]: localPlayerIndex=null is hot-seat mode — all players local, no move control guards applied
+- [Phase 03-05]: In-memory ConcurrentDictionary for online presence (60s threshold) — production would use Redis/DynamoDB TTL
+- [Phase 03-05]: HMAC invite token splits from the right (lastIndexOf) to handle ISO 8601 expiry dates that contain colons
+- [Phase 03-05]: Post-game friend prompt matches by player.name — game state in hot-seat mode does not carry Better Auth userIds
 
 ### Pending Todos
 
@@ -121,5 +123,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-04-PLAN.md — AppSync Events real-time game sync, idempotent moves, reconnection flow, 409 conflict handling.
-Resume file: none — ready for Plan 05 (Notifications + Invites)
+Stopped at: Completed 03-05-PLAN.md — Friends system, HMAC invite links, post-game friend prompt, copy invite link from waiting room.
+Resume file: none — Phase 3 complete, ready for Phase 4

@@ -8,6 +8,9 @@ export default defineConfig({
 		sveltekit(),
 		nxViteTsPaths(),
 		SvelteKitPWA({
+			strategies: 'injectManifest',
+			srcDir: 'src',
+			filename: 'service-worker.ts',
 			registerType: 'autoUpdate',
 			manifest: {
 				name: 'BGA2 — Board Games Online',
@@ -29,18 +32,9 @@ export default defineConfig({
 					},
 				],
 			},
-			workbox: {
-				// Cache API responses with network-first strategy
-				runtimeCaching: [
-					{
-						urlPattern: /^https?:\/\/.*\/api\//,
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'api-cache',
-							expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-						},
-					},
-				],
+			// Runtime caching moved into custom service-worker.ts
+			injectManifest: {
+				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
 			},
 			// Dev options: disable PWA in dev to avoid SW cache conflicts
 			devOptions: {

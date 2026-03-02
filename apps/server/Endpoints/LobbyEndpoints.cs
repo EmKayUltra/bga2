@@ -50,6 +50,36 @@ public static class LobbyEndpoints
             .WithName("QuickPlay")
             .WithSummary("Auto-join or create a table")
             .RequireAuthorization();
+
+        tables.MapGet("/my-games", GetMyGames)
+            .WithName("GetMyGames")
+            .WithSummary("Get active async games for the authenticated user")
+            .RequireAuthorization();
+
+        tables.MapGet("/by-session/{sessionId:guid}", GetTableBySession)
+            .WithName("GetTableBySession")
+            .WithSummary("Get table metadata by session ID (for async game page)")
+            .RequireAuthorization();
+
+        tables.MapPost("/{id:guid}/pause-request", PauseRequest)
+            .WithName("PauseRequest")
+            .WithSummary("Request a pause in an async game")
+            .RequireAuthorization();
+
+        tables.MapPost("/{id:guid}/pause-accept", PauseAccept)
+            .WithName("PauseAccept")
+            .WithSummary("Accept a pause request")
+            .RequireAuthorization();
+
+        tables.MapPost("/{id:guid}/pause-decline", PauseDecline)
+            .WithName("PauseDecline")
+            .WithSummary("Decline a pause request")
+            .RequireAuthorization();
+
+        tables.MapPost("/{id:guid}/resume", ResumeGame)
+            .WithName("ResumeGame")
+            .WithSummary("Resume a paused async game")
+            .RequireAuthorization();
     }
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -139,6 +169,76 @@ public static class LobbyEndpoints
 
         var result = await lobbyService.QuickPlay(userId, displayName, req.GameId);
         return Results.Ok(result);
+    }
+
+    private static async Task<IResult> GetMyGames(LobbyService lobbyService, HttpContext ctx)
+    {
+        var (userId, _) = ExtractUser(ctx);
+        if (userId == null)
+            return Results.Unauthorized();
+
+        var games = await lobbyService.GetMyGames(userId);
+        return Results.Ok(games);
+    }
+
+    private static async Task<IResult> GetTableBySession(Guid sessionId, LobbyService lobbyService, HttpContext ctx)
+    {
+        var (userId, _) = ExtractUser(ctx);
+        if (userId == null)
+            return Results.Unauthorized();
+
+        var meta = await lobbyService.GetTableBySession(sessionId, userId);
+        if (meta == null)
+            return Results.NotFound(new { error = "Table not found for this session" });
+        return Results.Ok(meta);
+    }
+
+    private static async Task<IResult> PauseRequest(Guid id, LobbyService lobbyService, HttpContext ctx)
+    {
+        var (userId, _) = ExtractUser(ctx);
+        if (userId == null)
+            return Results.Unauthorized();
+
+        var (success, error) = await lobbyService.PauseRequest(id, userId);
+        if (!success)
+            return Results.BadRequest(new { error });
+        return Results.Ok(new { success = true });
+    }
+
+    private static async Task<IResult> PauseAccept(Guid id, LobbyService lobbyService, HttpContext ctx)
+    {
+        var (userId, _) = ExtractUser(ctx);
+        if (userId == null)
+            return Results.Unauthorized();
+
+        var (success, error) = await lobbyService.PauseAccept(id, userId);
+        if (!success)
+            return Results.BadRequest(new { error });
+        return Results.Ok(new { success = true });
+    }
+
+    private static async Task<IResult> PauseDecline(Guid id, LobbyService lobbyService, HttpContext ctx)
+    {
+        var (userId, _) = ExtractUser(ctx);
+        if (userId == null)
+            return Results.Unauthorized();
+
+        var (success, error) = await lobbyService.PauseDecline(id, userId);
+        if (!success)
+            return Results.BadRequest(new { error });
+        return Results.Ok(new { success = true });
+    }
+
+    private static async Task<IResult> ResumeGame(Guid id, LobbyService lobbyService, HttpContext ctx)
+    {
+        var (userId, _) = ExtractUser(ctx);
+        if (userId == null)
+            return Results.Unauthorized();
+
+        var (success, error) = await lobbyService.ResumeGame(id, userId);
+        if (!success)
+            return Results.BadRequest(new { error });
+        return Results.Ok(new { success = true });
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

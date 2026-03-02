@@ -58,6 +58,27 @@ public record StartGameResult(bool Success, Guid? SessionId, string? Error);
 
 public record QuickPlayResult(bool Joined, bool Created, Guid TableId);
 
+public record MyGameItem(
+    Guid TableId,
+    Guid SessionId,
+    string DisplayName,
+    string TimerMode,
+    DateTime? TurnDeadline,
+    bool IsPaused,
+    List<string> Opponents,
+    bool IsMyTurn
+);
+
+public record TableAsyncMeta(
+    Guid TableId,
+    bool IsAsync,
+    string? TimerMode,
+    DateTime? TurnDeadline,
+    bool IsPaused,
+    string? PauseRequestedByUserId,
+    string? PauseRequestedByName
+);
+
 // ─── LobbyService ─────────────────────────────────────────────────────────────
 
 /// <summary>
@@ -379,6 +400,215 @@ public class LobbyService
 
         _logger.LogInformation("Quick Play: user {UserId} created new table {TableId}", userId, newTable!.Id);
         return new QuickPlayResult(Joined: false, Created: true, TableId: newTable.Id);
+    }
+
+    /// <summary>
+    /// Get all active async games where the user is a player.
+    /// Returns up to 20 most recently created, with isMyTurn derived from game state JSON.
+    /// </summary>
+    public async Task<List<MyGameItem>> GetMyGames(string userId)
+    {
+        // Load async Playing tables where the user has a seat
+        var playerRows = await _db.TablePlayers
+            .Where(p => p.UserId == userId)
+            .Select(p => p.TableId)
+            .ToListAsync();
+
+        var tables = await _db.GameTables
+            .Where(t => playerRows.Contains(t.Id)
+                        && t.Status == TableStatus.Playing
+                        && t.IsAsync
+                        && t.SessionId != null)
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+
+        if (tables.Count == 0)
+            return [];
+
+        // Load all players for these tables
+        var tableIds = tables.Select(t => t.Id).ToList();
+        var allPlayers = await _db.TablePlayers
+            .Where(p => tableIds.Contains(p.TableId))
+            .ToListAsync();
+
+        // Load session states for turn-detection
+        var sessionIds = tables.Select(t => t.SessionId!.Value).ToList();
+        var sessions = await _db.GameSessions
+            .Where(s => sessionIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.State })
+            .ToListAsync();
+
+        var sessionMap = sessions.ToDictionary(s => s.Id, s => s.State);
+
+        var result = new List<MyGameItem>();
+        foreach (var table in tables)
+        {
+            var tablePlayers = allPlayers.Where(p => p.TableId == table.Id).OrderBy(p => p.SeatIndex).ToList();
+            var myPlayer = tablePlayers.FirstOrDefault(p => p.UserId == userId);
+            var opponents = tablePlayers.Where(p => p.UserId != userId).Select(p => p.DisplayName).ToList();
+
+            // Derive isMyTurn from game state JSON
+            bool isMyTurn = false;
+            if (myPlayer != null && sessionMap.TryGetValue(table.SessionId!.Value, out var stateJson))
+            {
+                try
+                {
+                    var doc = System.Text.Json.JsonDocument.Parse(stateJson);
+                    if (doc.RootElement.TryGetProperty("currentPlayerIndex", out var idx))
+                    {
+                        isMyTurn = idx.GetInt32() == myPlayer.SeatIndex;
+                    }
+                }
+                catch
+                {
+                    // ignore parse errors — default isMyTurn = false
+                }
+            }
+
+            result.Add(new MyGameItem(
+                TableId: table.Id,
+                SessionId: table.SessionId!.Value,
+                DisplayName: table.DisplayName,
+                TimerMode: table.TimerMode ?? "normal",
+                TurnDeadline: table.TurnDeadline,
+                IsPaused: table.IsPaused,
+                Opponents: opponents,
+                IsMyTurn: isMyTurn
+            ));
+        }
+
+        // Sort: my-turn games first, then by deadline (most urgent first)
+        result.Sort((a, b) =>
+        {
+            if (a.IsMyTurn != b.IsMyTurn) return a.IsMyTurn ? -1 : 1;
+            if (a.TurnDeadline.HasValue && b.TurnDeadline.HasValue)
+                return a.TurnDeadline.Value.CompareTo(b.TurnDeadline.Value);
+            if (a.TurnDeadline.HasValue) return -1;
+            if (b.TurnDeadline.HasValue) return 1;
+            return 0;
+        });
+
+        return result;
+    }
+
+    /// <summary>
+    /// Get table async metadata by session ID, for the game page timer display.
+    /// Returns null if table not found or user is not a player.
+    /// </summary>
+    public async Task<TableAsyncMeta?> GetTableBySession(Guid sessionId, string userId)
+    {
+        var table = await _db.GameTables.FirstOrDefaultAsync(t => t.SessionId == sessionId);
+        if (table == null) return null;
+
+        // Validate user is a player
+        var isPlayer = await _db.TablePlayers.AnyAsync(p => p.TableId == table.Id && p.UserId == userId);
+        if (!isPlayer) return null;
+
+        string? pauseRequestedByName = null;
+        if (table.PauseRequestedByUserId != null)
+        {
+            var requester = await _db.TablePlayers
+                .FirstOrDefaultAsync(p => p.TableId == table.Id && p.UserId == table.PauseRequestedByUserId);
+            pauseRequestedByName = requester?.DisplayName;
+        }
+
+        return new TableAsyncMeta(
+            TableId: table.Id,
+            IsAsync: table.IsAsync,
+            TimerMode: table.TimerMode,
+            TurnDeadline: table.TurnDeadline,
+            IsPaused: table.IsPaused,
+            PauseRequestedByUserId: table.PauseRequestedByUserId,
+            PauseRequestedByName: pauseRequestedByName
+        );
+    }
+
+    /// <summary>Request a pause in an async game.</summary>
+    public async Task<(bool Success, string? Error)> PauseRequest(Guid tableId, string userId)
+    {
+        var table = await _db.GameTables.FindAsync(tableId);
+        if (table == null) return (false, "Table not found");
+        if (!table.IsAsync) return (false, "Only async games can be paused");
+        if (table.Status != TableStatus.Playing) return (false, "Game is not in progress");
+
+        var isPlayer = await _db.TablePlayers.AnyAsync(p => p.TableId == tableId && p.UserId == userId);
+        if (!isPlayer) return (false, "You are not a player in this game");
+
+        if (table.IsPaused) return (false, "Game is already paused");
+        if (table.PauseRequestedByUserId != null) return (false, "A pause request is already pending");
+
+        table.PauseRequestedByUserId = userId;
+        table.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} requested pause on table {TableId}", userId, tableId);
+        return (true, null);
+    }
+
+    /// <summary>Accept a pending pause request.</summary>
+    public async Task<(bool Success, string? Error)> PauseAccept(Guid tableId, string userId)
+    {
+        var table = await _db.GameTables.FindAsync(tableId);
+        if (table == null) return (false, "Table not found");
+        if (table.PauseRequestedByUserId == null) return (false, "No pause request pending");
+        if (table.PauseRequestedByUserId == userId) return (false, "Cannot accept your own pause request");
+
+        var isPlayer = await _db.TablePlayers.AnyAsync(p => p.TableId == tableId && p.UserId == userId);
+        if (!isPlayer) return (false, "You are not a player in this game");
+
+        table.IsPaused = true;
+        table.TurnDeadline = null;
+        table.PauseRequestedByUserId = null;
+        table.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} accepted pause on table {TableId}", userId, tableId);
+        return (true, null);
+    }
+
+    /// <summary>Decline a pending pause request.</summary>
+    public async Task<(bool Success, string? Error)> PauseDecline(Guid tableId, string userId)
+    {
+        var table = await _db.GameTables.FindAsync(tableId);
+        if (table == null) return (false, "Table not found");
+        if (table.PauseRequestedByUserId == null) return (false, "No pause request pending");
+        if (table.PauseRequestedByUserId == userId) return (false, "Cannot decline your own pause request");
+
+        var isPlayer = await _db.TablePlayers.AnyAsync(p => p.TableId == tableId && p.UserId == userId);
+        if (!isPlayer) return (false, "You are not a player in this game");
+
+        table.PauseRequestedByUserId = null;
+        table.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} declined pause on table {TableId}", userId, tableId);
+        return (true, null);
+    }
+
+    /// <summary>Resume a paused async game. Either player can resume.</summary>
+    public async Task<(bool Success, string? Error)> ResumeGame(Guid tableId, string userId)
+    {
+        var table = await _db.GameTables.FindAsync(tableId);
+        if (table == null) return (false, "Table not found");
+        if (!table.IsPaused) return (false, "Game is not paused");
+
+        var isPlayer = await _db.TablePlayers.AnyAsync(p => p.TableId == tableId && p.UserId == userId);
+        if (!isPlayer) return (false, "You are not a player in this game");
+
+        table.IsPaused = false;
+        table.PauseRequestedByUserId = null;
+        // Recalculate deadline from timer mode
+        if (table.TimerMode != null)
+        {
+            var hours = table.TimerMode switch { "fast" => 12, "normal" => 24, "slow" => 72, _ => 24 };
+            table.TurnDeadline = DateTime.UtcNow.AddHours(hours);
+        }
+        table.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} resumed table {TableId}", userId, tableId);
+        return (true, null);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

@@ -82,6 +82,27 @@ export interface QuickPlayResult {
   tableId: string;
 }
 
+export interface MyGameItem {
+  tableId: string;
+  sessionId: string;
+  displayName: string;
+  timerMode: string;
+  turnDeadline: string | null;
+  isPaused: boolean;
+  opponents: string[];
+  isMyTurn: boolean;
+}
+
+export interface TableAsyncMeta {
+  tableId: string;
+  isAsync: boolean;
+  timerMode: string | null;
+  turnDeadline: string | null;
+  isPaused: boolean;
+  pauseRequestedByUserId: string | null;
+  pauseRequestedByName: string | null;
+}
+
 // ─── Token cache ──────────────────────────────────────────────────────────────
 
 interface TokenCache {
@@ -223,4 +244,85 @@ export async function quickPlay(gameId: string): Promise<QuickPlayResult> {
     throw new Error(err.error ?? `Quick Play failed: HTTP ${res.status}`);
   }
   return res.json() as Promise<QuickPlayResult>;
+}
+
+/**
+ * Get active async games for the authenticated user.
+ */
+export async function getMyGames(): Promise<MyGameItem[]> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/tables/my-games`, { headers });
+  if (!res.ok) throw new Error(`Failed to get my games: HTTP ${res.status}`);
+  return res.json() as Promise<MyGameItem[]>;
+}
+
+/**
+ * Get async table metadata by session ID (for game page timer display).
+ */
+export async function getTableBySession(sessionId: string): Promise<TableAsyncMeta | null> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/tables/by-session/${encodeURIComponent(sessionId)}`, { headers });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to get table meta: HTTP ${res.status}`);
+  return res.json() as Promise<TableAsyncMeta>;
+}
+
+/**
+ * Request a pause in an async game.
+ */
+export async function requestPause(tableId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/tables/${encodeURIComponent(tableId)}/pause-request`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+    throw new Error(err.error ?? `Pause request failed: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Accept a pause request in an async game.
+ */
+export async function acceptPause(tableId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/tables/${encodeURIComponent(tableId)}/pause-accept`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+    throw new Error(err.error ?? `Pause accept failed: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Decline a pause request in an async game.
+ */
+export async function declinePause(tableId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/tables/${encodeURIComponent(tableId)}/pause-decline`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+    throw new Error(err.error ?? `Pause decline failed: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Resume a paused async game.
+ */
+export async function resumeGame(tableId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/tables/${encodeURIComponent(tableId)}/resume`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+    throw new Error(err.error ?? `Resume failed: HTTP ${res.status}`);
+  }
 }

@@ -3,6 +3,8 @@
 	import { authClient } from '$lib/auth-client';
 	import { getProfile, updateProfile, updateUsername, type ProfileResponse } from '$lib/api/socialApi';
 	import { getAvatarEmoji, PRESET_AVATAR_IDS } from '$lib/avatars';
+	import { getPreferences, updatePreferences, subscribePush } from '$lib/api/notificationApi';
+	import { subscribeToPush, isPushPermissionGranted, isInstalledPWA } from '$lib/pushSubscription';
 
 	// ── Auth guard ─────────────────────────────────────────────────────────────
 	const session = authClient.useSession();
@@ -35,6 +37,16 @@
 	let profileSaveSuccess = $state<string | null>(null);
 	let profileSaveError = $state<string | null>(null);
 
+	// Notification preferences state
+	let emailEnabled = $state(true);
+	let pushEnabled = $state(true);
+	let reminderHours = $state(4);
+	let pushPermission = $state<'default' | 'granted' | 'denied'>('default');
+	let pushSubscribeLoading = $state(false);
+	let notifSaveLoading = $state(false);
+	let notifSaveSuccess = $state<string | null>(null);
+	let notifSaveError = $state<string | null>(null);
+
 	// ── Load current profile ───────────────────────────────────────────────────
 	$effect(() => {
 		const user = $session?.data?.user as { username?: string; name?: string } | undefined;
@@ -44,12 +56,26 @@
 		loading = true;
 		loadError = null;
 
-		getProfile(username).then((profile: ProfileResponse | null) => {
+		// Check push permission state (browser-only)
+		if (typeof window !== 'undefined' && 'Notification' in window) {
+			pushPermission = Notification.permission as 'default' | 'granted' | 'denied';
+		}
+
+		// Load profile and notification preferences in parallel
+		Promise.all([
+			getProfile(username),
+			getPreferences().catch(() => null),
+		]).then(([profile, prefs]) => {
 			if (profile) {
 				selectedAvatar = profile.avatar;
 				isPublic = profile.isPublic;
 				currentUsername = profile.username;
 				newUsername = profile.username;
+			}
+			if (prefs) {
+				emailEnabled = prefs.emailEnabled;
+				pushEnabled = prefs.pushEnabled;
+				reminderHours = prefs.reminderHoursBeforeDeadline;
 			}
 			loading = false;
 		}).catch((e: unknown) => {
@@ -72,6 +98,52 @@
 			profileSaveError = e instanceof Error ? e.message : 'Failed to save profile.';
 		} finally {
 			profileSaveLoading = false;
+		}
+	}
+
+	async function handleSaveNotifications() {
+		notifSaveLoading = true;
+		notifSaveSuccess = null;
+		notifSaveError = null;
+
+		try {
+			await updatePreferences({
+				emailEnabled,
+				pushEnabled,
+				reminderHoursBeforeDeadline: reminderHours,
+			});
+			notifSaveSuccess = 'Notification preferences saved!';
+		} catch (e) {
+			notifSaveError = e instanceof Error ? e.message : 'Failed to save notification preferences.';
+		} finally {
+			notifSaveLoading = false;
+		}
+	}
+
+	async function handleEnablePush() {
+		const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+		if (!vapidKey) {
+			notifSaveError = 'Push notifications not configured.';
+			return;
+		}
+
+		pushSubscribeLoading = true;
+		try {
+			const subscription = await subscribeToPush(vapidKey);
+			if (subscription) {
+				await subscribePush(subscription);
+				pushPermission = 'granted';
+				pushEnabled = true;
+			} else {
+				// User denied
+				if (typeof window !== 'undefined' && 'Notification' in window) {
+					pushPermission = Notification.permission as 'default' | 'granted' | 'denied';
+				}
+			}
+		} catch (e) {
+			notifSaveError = e instanceof Error ? e.message : 'Failed to enable push notifications.';
+		} finally {
+			pushSubscribeLoading = false;
 		}
 	}
 
@@ -199,6 +271,90 @@
 					{/if}
 				</span>
 			</label>
+		</section>
+
+		<!-- Notifications Section -->
+		<section class="settings-section">
+			<h2 class="section-title">Notifications</h2>
+			<p class="section-desc">Control how you receive turn notifications for async games.</p>
+
+			<!-- Email toggle -->
+			<label class="toggle-label">
+				<input
+					type="checkbox"
+					class="toggle-input"
+					bind:checked={emailEnabled}
+				/>
+				<span class="toggle-track">
+					<span class="toggle-thumb"></span>
+				</span>
+				<span class="toggle-text">
+					<strong>Email notifications</strong> — receive email when it's your turn in async games
+				</span>
+			</label>
+
+			<!-- Push notifications -->
+			{#if pushPermission === 'denied'}
+				<p class="push-blocked-notice">
+					Push notifications were blocked. Enable them in your browser settings, then reload this page.
+				</p>
+			{:else if pushPermission === 'granted'}
+				<label class="toggle-label">
+					<input
+						type="checkbox"
+						class="toggle-input"
+						bind:checked={pushEnabled}
+					/>
+					<span class="toggle-track">
+						<span class="toggle-thumb"></span>
+					</span>
+					<span class="toggle-text">
+						<strong>Push notifications</strong> — receive push notifications when it's your turn
+					</span>
+				</label>
+			{:else}
+				<div class="push-prompt-row">
+					<span class="toggle-text">
+						<strong>Push notifications</strong> — receive push notifications when it's your turn
+					</span>
+					<button
+						class="action-button"
+						onclick={handleEnablePush}
+						disabled={pushSubscribeLoading}
+					>
+						{pushSubscribeLoading ? 'Enabling...' : 'Enable Push Notifications'}
+					</button>
+				</div>
+			{/if}
+
+			<!-- Reminder timing -->
+			<div class="field-row">
+				<label class="label" for="reminder-hours">Remind me before deadline</label>
+				<select id="reminder-hours" class="select" bind:value={reminderHours}>
+					<option value={0}>Off</option>
+					<option value={1}>1 hour before</option>
+					<option value={2}>2 hours before</option>
+					<option value={4}>4 hours before (default)</option>
+					<option value={8}>8 hours before</option>
+					<option value={12}>12 hours before</option>
+				</select>
+			</div>
+
+			<div class="notif-save-row">
+				<button
+					class="action-button"
+					onclick={handleSaveNotifications}
+					disabled={notifSaveLoading}
+				>
+					{notifSaveLoading ? 'Saving...' : 'Save Notifications'}
+				</button>
+				{#if notifSaveSuccess}
+					<p class="success-message" role="status">{notifSaveSuccess}</p>
+				{/if}
+				{#if notifSaveError}
+					<p class="error-message" role="alert">{notifSaveError}</p>
+				{/if}
+			</div>
 		</section>
 
 		<!-- Save Button -->
@@ -469,6 +625,57 @@
 	.save-button:disabled {
 		opacity: 0.7;
 		cursor: not-allowed;
+	}
+
+	/* Notifications section */
+	.push-blocked-notice {
+		font-size: 0.875rem;
+		color: #92400e;
+		background: #fef3c7;
+		border: 1px solid #fde68a;
+		border-radius: 8px;
+		padding: 0.625rem 0.875rem;
+		margin: 0;
+	}
+
+	.push-prompt-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.field-row {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	.label {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #374151;
+		white-space: nowrap;
+	}
+
+	.select {
+		padding: 0.5rem 0.75rem;
+		border: 1px solid #d1d5db;
+		border-radius: 8px;
+		font-size: 0.9375rem;
+		font-family: inherit;
+		color: #1e293b;
+		background: #ffffff;
+	}
+
+	.notif-save-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		flex-wrap: wrap;
+		padding-top: 0.25rem;
 	}
 
 	/* Messages */

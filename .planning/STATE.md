@@ -114,7 +114,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- **"Invalid origin" on account registration** — Better Auth rejects sign-up with 403 "INVALID_ORIGIN". Likely trustedOrigins config issue. See `.planning/todos/pending/invalid-origin-auth.md`
 
 ### Blockers/Concerns
 

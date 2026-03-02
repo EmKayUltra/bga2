@@ -31,7 +31,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Multiplayer
 
 - [x] **MULT-01**: Real-time synchronous play via AppSync Events WebSocket
-- [ ] **MULT-02**: Async turn-based play with configurable timer presets (fast/normal/slow/unlimited)
+- [x] **MULT-02**: Async turn-based play with configurable timer presets (fast/normal/slow/unlimited)
 - [x] **MULT-03**: Lobby with open and invite-only table creation
 - [x] **MULT-04**: Reconnection re-fetches server state before enabling interaction
 - [x] **MULT-05**: Idempotent move protocol with client-generated UUIDs
@@ -51,7 +51,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **NOTF-01**: User receives email notification when it's their turn (async games)
 - [x] **NOTF-02**: Turn timer enforces deadlines with escalating reminders (48h, 24h, final hour)
 - [x] **NOTF-03**: User receives Web Push notification via PWA service worker
-- [ ] **NOTF-04**: User can configure notification preferences (immediate vs digest, per-game)
+- [x] **NOTF-04**: User can configure notification preferences (immediate vs digest, per-game)
 
 ### Player Experience
 
@@ -161,11 +161,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SOCL-05 | Phase 3 | Complete |
 | SOCL-06 | Phase 3 | Complete |
 | PLAT-02 | Phase 3 | Complete |
-| MULT-02 | Phase 4 | In Progress (04-01: data layer; 04-02+: enforcement) |
+| MULT-02 | Phase 4 | Complete |
 | NOTF-01 | Phase 4 | Complete |
-| NOTF-02 | Phase 4 | In Progress (04-01: NotificationLog entity; 04-02: deadline enforcement) |
+| NOTF-02 | Phase 4 | Complete |
 | NOTF-03 | Phase 4 | Complete |
-| NOTF-04 | Phase 4 | Pending |
+| NOTF-04 | Phase 4 | Complete |
 | AIGC-01 | Phase 5 | Pending |
 | AIGC-02 | Phase 5 | Pending |
 | AIGC-03 | Phase 5 | Pending |

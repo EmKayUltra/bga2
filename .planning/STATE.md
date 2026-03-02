@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 4 IN PROGRESS — Plan 04-03 complete (Web Push client infrastructure)
+**Current focus:** Phase 4 COMPLETE — All 5 plans executed, gap closure done
 
 ## Current Position
 
 Phase: 4 of 6 — IN PROGRESS (Async + Notifications)
-Plans: 3/4 complete (04-01: async foundation, 04-02: deadline/email service, 04-03: Web Push client infrastructure)
-Status: Phase 4 in progress. Plans 04-01, 04-02, 04-03 executed.
-Last activity: 2026-03-02 — Phase 4 UAT complete: 10/10 tests pass (6 Puppeteer, 4 code-verified)
+Plans: 5/5 complete (04-01: async foundation, 04-02: deadline/email service, 04-03: Web Push client, 04-04: settings UI, 04-05: gap closure)
+Status: Phase 4 all plans executed. Gap closure complete (MULT-02, NOTF-02, NOTF-04).
+Last activity: 2026-03-02 — Plan 04-05 gap closure: unlimited timer, escalating reminders, digest mode, per-game opt-out
 
-Progress: [█████░░░░░] 63% (3.75 of 6 phases complete)
+Progress: [██████░░░░] 67% (4 of 6 phases complete)
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress: [█████░░░░░] 63% (3.75 of 6 phases complete)
 | 03-multiplayer-social | 6/6 | ~62 min | 10.3 min |
 | Phase 03-multiplayer-social P07 | 6 | 2 tasks | 2 files |
 | Phase 04 P02 | 7 | 2 tasks | 6 files |
+| Phase 04 P05 | 13 | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,10 @@ Recent decisions affecting current work:
 - [Phase 04-02]: VapidAuthentication passed per-call to RequestPushMessageDeliveryAsync — thread-safe for concurrent Hangfire jobs
 - [Phase 04-02]: PendingReminderJobId stored on GameTable — BackgroundJob.Schedule job ID stored for cancellation via BackgroundJob.Delete on next player move
 - [Quick-3]: SSR API_BASE uses private env var API_SERVER_URL (no VITE_ prefix) pointing to server:8080; browser uses VITE_API_URL/localhost:8080 — browser ternary via $app/environment
+- [Phase 04-05]: PendingReminderJobIds replaces PendingReminderJobId — jsonb array stores multiple Hangfire job IDs for escalating 48h/24h/1h reminders
+- [Phase 04-05]: Escalating reminders only schedule offsets within timer window — fast (12h) game only gets 1h reminder, slow (72h) gets all three
+- [Phase 04-05]: Digest deferral uses "email-pending-digest" channel in NotificationLog — reuses existing idempotency infrastructure as pending queue
+- [Phase 04-05]: Push notifications always fire immediately even in daily_digest mode — push is inherently real-time, only email gets batched
 
 ### Pending Todos
 
@@ -148,5 +153,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Phase 4 UAT complete (10/10 pass). 04-04 still needs SUMMARY written and phase verification run.
+Stopped at: Completed 04-05-PLAN.md (gap closure). Phase 4 all plans executed.
 Resume file: .planning/phases/04-async-notifications/.continue-here.md

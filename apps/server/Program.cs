@@ -27,6 +27,8 @@ builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<AppSyncPublisher>();
 builder.Services.AddScoped<GameService>();
 builder.Services.AddScoped<LobbyService>();
+builder.Services.AddScoped<FriendService>();
+builder.Services.AddScoped<InviteService>();
 
 // ─── JWT Bearer authentication ────────────────────────────────────────────────
 // Better Auth exposes JWKS at /api/auth/jwks (via jwt plugin).
@@ -99,6 +101,26 @@ app.UseCors("DevCors");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ─── Last-seen middleware ───────────────────────────────────────────────────────
+// Updates in-memory presence tracking for any authenticated request.
+// FriendService.IsOnline() uses this to determine online status.
+app.Use(async (context, next) =>
+{
+    await next();
+    // Update last-seen after the request completes so auth claims are resolved
+    if (context.User.Identity?.IsAuthenticated == true)
+    {
+        var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? context.User.FindFirst("sub")?.Value;
+        if (userId != null)
+        {
+            // FriendService is scoped — use the existing request scope
+            var friendService = context.RequestServices.GetService<FriendService>();
+            friendService?.UpdateLastSeen(userId);
+        }
+    }
+});
+
 // ─── Endpoints ─────────────────────────────────────────────────────────────────
 
 // Health check
@@ -130,6 +152,12 @@ app.MapLobbyEndpoints();
 
 // Social endpoints (GET /social/profile/{username}, PUT /social/profile, etc.)
 app.MapSocialEndpoints();
+
+// Friend endpoints (GET/POST /friends, /friends/requests, /friends/search, etc.)
+app.MapFriendEndpoints();
+
+// Invite endpoints (POST /invites, GET /invites/{token}/validate)
+app.MapInviteEndpoints();
 
 // ─── Startup ───────────────────────────────────────────────────────────────────
 app.Logger.LogInformation("BGA2 Server starting on {Url}", "http://0.0.0.0:8080");

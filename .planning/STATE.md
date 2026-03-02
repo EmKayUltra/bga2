@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 Phase: 4 of 6 — IN PROGRESS (Async + Notifications)
 Plans: 3/4 complete (04-01: async foundation, 04-02: deadline/email service, 04-03: Web Push client infrastructure)
 Status: Phase 4 in progress. Plans 04-01, 04-02, 04-03 executed.
-Last activity: 2026-03-02 — Completed quick task 3: Fix VITE_API_URL Docker networking and remove unused LocalStack service
+Last activity: 2026-03-02 — Phase 4 UAT complete: 10/10 tests pass (6 Puppeteer, 4 code-verified)
 
 Progress: [█████░░░░░] 63% (3.75 of 6 phases complete)
 
@@ -148,5 +148,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed quick task 3 (Fix VITE_API_URL Docker networking + remove LocalStack). Phase 4 plan 04-04 still needs checkpoint approval and SUMMARY.
+Stopped at: Phase 4 UAT complete (10/10 pass). 04-04 still needs SUMMARY written and phase verification run.
 Resume file: .planning/phases/04-async-notifications/.continue-here.md

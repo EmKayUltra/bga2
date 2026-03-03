@@ -52,9 +52,17 @@ public class GameService
     /// Each factory receives 4 tiles drawn from the bag.
     /// Center starts with only the first-player token.
     /// Per-player zones: pattern lines (1-5), wall, floor-line (all empty).
+    ///
+    /// If gameId == "hive", delegates to CreateHiveGame instead.
     /// </summary>
     public async Task<CreateGameResponse> CreateGame(string gameId, string[] playerNames, string[]? userIds = null)
     {
+        // Delegate to Hive-specific game creation
+        if (string.Equals(gameId, "hive", StringComparison.OrdinalIgnoreCase))
+        {
+            return await CreateHiveGame(gameId, playerNames, userIds);
+        }
+
         // Clamp player count to valid Azul range (2-4)
         var playerCount = Math.Clamp(playerNames.Length, 2, 4);
         var actualPlayerNames = playerNames.Take(playerCount).ToArray();
@@ -592,6 +600,109 @@ public class GameService
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Creates a new Hive game session with the standard 2-player initial state.
+    ///
+    /// Each player starts with 11 pieces in their hand:
+    ///   1x Queen Bee, 2x Beetle, 3x Grasshopper, 2x Spider, 3x Soldier Ant
+    /// The board starts empty (freeform zone).
+    /// The first player places at (0,0) by convention.
+    /// </summary>
+    private async Task<CreateGameResponse> CreateHiveGame(string gameId, string[] playerNames, string[]? userIds = null)
+    {
+        // Hive is exactly 2 players
+        var playerCount = 2;
+        var actualPlayerNames = playerNames.Take(playerCount).ToArray();
+
+        // Ensure we have 2 player names (fill with defaults if needed)
+        while (actualPlayerNames.Length < playerCount)
+        {
+            actualPlayerNames = [.. actualPlayerNames, $"Player {actualPlayerNames.Length + 1}"];
+        }
+
+        // Build zones
+        var zones = new Dictionary<string, object>
+        {
+            ["board"] = new { pieces = Array.Empty<object>() }
+        };
+
+        // Build players and their hand zones
+        var players = new List<object>();
+        for (var i = 0; i < playerCount; i++)
+        {
+            var name = actualPlayerNames[i];
+            var userId = userIds != null && i < userIds.Length ? userIds[i] : (string?)null;
+
+            // Build hand: 1 queen, 2 beetles, 3 grasshoppers, 2 spiders, 3 ants
+            var handPieces = new List<object>
+            {
+                new { id = $"p{i}-queen-0", defId = "queen-bee", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-beetle-0", defId = "beetle", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-beetle-1", defId = "beetle", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-grasshopper-0", defId = "grasshopper", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-grasshopper-1", defId = "grasshopper", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-grasshopper-2", defId = "grasshopper", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-spider-0", defId = "spider", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-spider-1", defId = "spider", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-ant-0", defId = "soldier-ant", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-ant-1", defId = "soldier-ant", zoneId = $"player-{i}-hand", state = new { owner = i } },
+                new { id = $"p{i}-ant-2", defId = "soldier-ant", zoneId = $"player-{i}-hand", state = new { owner = i } },
+            };
+
+            zones[$"player-{i}-hand"] = new { pieces = handPieces };
+
+            players.Add(new
+            {
+                id = $"player-{i}",
+                name,
+                userId,
+                score = 0,
+                data = new
+                {
+                    queenPlaced = false,
+                    turnNumber = 0
+                }
+            });
+        }
+
+        var gameState = new
+        {
+            id = Guid.NewGuid().ToString(),
+            gameId,
+            version = 0,
+            phase = "playing",
+            currentPlayerIndex = 0,
+            players = players.ToArray(),
+            zones,
+            round = 1,
+            finished = false
+        };
+
+        var stateJson = JsonSerializer.Serialize(gameState, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var session = new GameSession
+        {
+            Id = Guid.NewGuid(),
+            GameId = gameId,
+            State = stateJson,
+            Version = 0,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        _db.GameSessions.Add(session);
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Created Hive game session {SessionId} for game {GameId} with {PlayerCount} players",
+            session.Id, gameId, playerCount);
+
+        return new CreateGameResponse(session.Id, gameId, session.Version);
     }
 
     /// <summary>

@@ -249,7 +249,8 @@ public class HookExecutor
         //    The return type annotation ends at the { that opens the function body.
         //    Character class includes { } for inline object types like Array<{id:string}>.
         //    Greedy match backtracks to find the last { on the line.
-        js = Regex.Replace(js, @"\)[ \t]*:[ \t]*(?:void|boolean|number|string|never|null|undefined|[A-Za-z_$][A-Za-z0-9_$<>;\[\]|& ,.\{\}':]*)[ \t]*\{",
+        //    Also handles inline object return types: ): { q: number; r: number } {
+        js = Regex.Replace(js, @"\)[ \t]*:[ \t]*(?:void|boolean|number|string|never|null|undefined|\{[^{}]*\}|[A-Za-z_$][A-Za-z0-9_$<>;\[\]|& ,.\{\}':]*)[ \t]*\{",
             ") {");
 
         // 8. Remove "as unknown as Type" type assertions — order matters, do complex first
@@ -261,15 +262,18 @@ public class HookExecutor
         //    Use iterative approach: first strip generics from type assertions, then strip the assertion
         //    Pass 1: strip "as Type<...>" where the generic can contain word chars, spaces, commas
         js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*\s*<[A-Za-z0-9_$\s,\[\]|&.\'{}:]*>", "");
-        //    Pass 2: strip plain "as Type" assertions
-        js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*(?=[;\)\]\},\s\[])", "");
+        //    Pass 2: strip "as { inline: object }" type assertions
+        js = Regex.Replace(js, @"\s+as\s+\{[^{}]*\}(?=[;\)\]\},\s])", "");
+        //    Pass 3: strip plain "as Type" and "as Type[]" assertions
+        js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\[\])*(?=[;\)\]\},\s\[])", "");
 
         // 10. Remove variable type annotations: const x: Type = / let x: Type = / var x: Type =
         //     Handle complex types including Array<{ id: string; defId: string }> on a single line.
         //     Use [ \t] (space/tab only) instead of \s to prevent cross-line matching.
         //     Greedy match backtracks to find the = on the same line.
         //     Character class includes : for inline object types like Array<{ id: string }>
-        js = Regex.Replace(js, @"((?:const|let|var)[ \t]+\w+)[ \t]*:[ \t]*[A-Za-z_$][A-Za-z0-9_$<>;\[\]|&:{ },.\\']*[ \t]*(?==)", "$1");
+        //     Also handles index signature types like { [key: string]: boolean }
+        js = Regex.Replace(js, @"((?:const|let|var)[ \t]+\w+)[ \t]*:[ \t]*(?:\{[^{}]*\}|[A-Za-z_$][A-Za-z0-9_$<>;\[\]|&:{ },.\\'\\]*)[ \t]*(?==)", "$1");
 
         // 11. Remove generic type arguments from new expressions: new Set<string>() -> new Set()
         //     And from Array.from<X>( -> Array.from(
@@ -282,6 +286,16 @@ public class HookExecutor
         //      followed by , or ) at end of line (param separator).
         //      Must be done BEFORE the simpler step 12b to avoid partial matches.
         js = Regex.Replace(js, @"(\w+)\??\s*:\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]]*\s*<\{[^}]*\}>(?=\s*[,)])", "$1");
+
+        // 12a2. Remove inline object type param annotations: (d: { q: number; r: number }) -> (d)
+        //       Handles Hive-style hex coordinate type annotations in function parameters.
+        //       Also handles index signature: (keys: { [key: string]: boolean }) -> (keys)
+        //       Only strip when the object content looks like a TS type:
+        //       - Contains ';' (semicolon-delimited): { q: number; r: number }
+        //       - OR starts with '[' (index signature): { [key: string]: boolean }
+        //       NOT regular object literals with comma separators like { q: 1, r: 2 }
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*\{[^{}]*;[^{}]*\}(?=\s*[,)])", "$1");
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*\{\s*\[[^\]]*\][^{}]*\}(?=\s*[,)])", "$1");
 
         // 12b. Remove : TypeAnnotation from function parameters — (param: Type) -> (param)
         //      Also handles optional params: (param?: Type) -> (param)
@@ -364,13 +378,35 @@ public class HookExecutor
 
             if (moves == null) return [];
 
-            return moves.Select(m => new ValidMove(
-                Action: m.TryGetValue("action", out var a) ? a.GetString() ?? "" : "",
-                Source: m.TryGetValue("source", out var s) ? s.GetString() : null,
-                Target: m.TryGetValue("target", out var t) ? t.GetString() : null,
-                PieceId: m.TryGetValue("pieceId", out var p) ? p.GetString() : null,
-                Description: m.TryGetValue("description", out var d) ? d.GetString() : null
-            )).ToList();
+            return moves.Select(m =>
+            {
+                // Parse optional data field (e.g., { "q": 0, "r": 0 } for Hive moves)
+                Dictionary<string, object>? data = null;
+                if (m.TryGetValue("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Object)
+                {
+                    data = new Dictionary<string, object>();
+                    foreach (var prop in dataEl.EnumerateObject())
+                    {
+                        data[prop.Name] = prop.Value.ValueKind switch
+                        {
+                            JsonValueKind.Number => prop.Value.TryGetInt32(out var i) ? (object)i : prop.Value.GetDouble(),
+                            JsonValueKind.String => prop.Value.GetString() ?? "",
+                            JsonValueKind.True => true,
+                            JsonValueKind.False => false,
+                            _ => prop.Value.GetRawText()
+                        };
+                    }
+                }
+
+                return new ValidMove(
+                    Action: m.TryGetValue("action", out var a) ? a.GetString() ?? "" : "",
+                    Source: m.TryGetValue("source", out var s) ? s.GetString() : null,
+                    Target: m.TryGetValue("target", out var t) ? t.GetString() : null,
+                    PieceId: m.TryGetValue("pieceId", out var p) ? p.GetString() : null,
+                    Description: m.TryGetValue("description", out var d) ? d.GetString() : null,
+                    Data: data
+                );
+            }).ToList();
         }
         catch (Exception ex)
         {

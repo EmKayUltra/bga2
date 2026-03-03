@@ -627,31 +627,14 @@ export function getValidMoves(ctx: HookContext): ValidMove[] {
       }
     }
 
-    // Generate placement moves for each piece type in hand at each valid hex
+    // Generate placement moves for each piece type in hand at each valid hex.
+    // Each valid move includes data: { q, r } so the client and server can use the
+    // coordinate directly without encoding it separately.
     for (var pi = 0; pi < placementHexes.length; pi++) {
       var ph = placementHexes[pi];
       for (var defId2 in pieceTypesInHand) {
         if (!pieceTypesInHand.hasOwnProperty(defId2)) continue;
-        var representativePiece = pieceTypesInHand[defId2];
-        validMoves.push({
-          action: 'place',
-          source: handZoneId,
-          target: 'board',
-          pieceId: representativePiece.id,
-          description: 'Place ' + defId2 + ' at (' + ph.q + ',' + ph.r + ')',
-        } as any);
-        // Also track the target coordinate in a data field — but ValidMove doesn't have data.
-        // We encode q,r into the description and use a separate approach:
-        // The move is identified by action+source+target+pieceId; the target coordinates
-        // are passed in move.data by the client. We emit one move per (pieceType, hex) combo
-        // using a custom pieceId-like encoding. Instead, we push all piece IDs in hand for
-        // this piece type and each placement hex combination.
-        // Actually, we need to emit moves that the server can validate. The server checks
-        // action+source+target+pieceId. For placement, the target hex is in move.data.
-        // We emit one ValidMove per (pieceId, targetHex) to enable exact validation.
-        // Remove last added and add proper one:
-        validMoves.pop();
-        // Find all pieces of this type in hand
+        // Find one representative piece ID of this type in hand
         for (var hj = 0; hj < handPieces.length; hj++) {
           if (handPieces[hj].defId === defId2) {
             validMoves.push({
@@ -660,6 +643,7 @@ export function getValidMoves(ctx: HookContext): ValidMove[] {
               target: 'board',
               pieceId: handPieces[hj].id,
               description: 'Place ' + defId2 + ' at (' + ph.q + ',' + ph.r + ')',
+              data: { q: ph.q, r: ph.r },
             } as any);
             break; // one representative per type per hex is enough for validation
           }
@@ -759,6 +743,7 @@ export function getValidMoves(ctx: HookContext): ValidMove[] {
           target: 'board',
           pieceId: mp.id,
           description: 'Move ' + mp.defId + ' to (' + targets2[ti].q + ',' + targets2[ti].r + ')',
+          data: { q: targets2[ti].q, r: targets2[ti].r },
         } as any);
       }
     }

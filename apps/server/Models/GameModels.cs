@@ -21,13 +21,16 @@ public record MoveRequest(
 /// <summary>
 /// A single valid move the current player can make.
 /// Mirrors ValidMove from shared-types.
+/// Data carries move-specific coordinate information (e.g., { "q": 0, "r": 0 }
+/// for Hive placement/movement moves) so clients can submit the move directly.
 /// </summary>
 public record ValidMove(
     string Action,
     string? Source = null,
     string? Target = null,
     string? PieceId = null,
-    string? Description = null
+    string? Description = null,
+    Dictionary<string, object>? Data = null
 );
 
 /// <summary>

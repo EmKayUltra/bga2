@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using Amazon.S3;
 using Amazon.S3.Transfer;
 using Bga2.GameCreator.Pipeline;
@@ -42,8 +43,8 @@ public class S3Packager
         var validator = new JintValidator();
         var hooksSource = File.ReadAllText(hooksPath);
 
-        // Strip TypeScript annotations for Jint validation (same as HookExecutor)
-        var strippedSource = StripBasicTypeScript(hooksSource);
+        // Strip TypeScript annotations for Jint validation (mirrors HookExecutor approach)
+        var strippedSource = StripTypeScriptAnnotations(hooksSource);
         var errors = validator.Validate(strippedSource);
         if (errors.Count > 0)
         {
@@ -117,57 +118,91 @@ public class S3Packager
     }
 
     /// <summary>
-    /// Basic TypeScript stripping for Jint validation.
-    /// Removes import statements, type aliases, and interface declarations,
-    /// and replaces export keywords for compatibility.
+    /// Strips TypeScript-specific syntax from a .ts file to produce valid JavaScript.
+    /// Mirrors the approach in HookExecutor.StripTypeScriptAnnotations on the server.
+    /// Handles: import statements, interface declarations, type aliases, return type
+    /// annotations, parameter type annotations, export keywords, type assertions, and
+    /// generic type parameters.
     /// </summary>
-    private static string StripBasicTypeScript(string tsSource)
+    internal static string StripTypeScriptAnnotations(string tsSource)
     {
-        var lines = tsSource.Split('\n');
-        var result = new List<string>();
-        var inInterfaceBlock = false;
-        var braceDepth = 0;
+        var js = tsSource;
 
-        foreach (var line in lines)
-        {
-            var trimmed = line.Trim();
+        // 1. Remove "import type { ... } from '...';" lines
+        js = Regex.Replace(js, @"import type \{[^}]*\} from '[^']*';\r?\n?", "", RegexOptions.Multiline);
 
-            // Skip import lines
-            if (trimmed.StartsWith("import ")) continue;
+        // 2. Remove "import { ... } from '...';" lines (regular imports unusable in Jint)
+        js = Regex.Replace(js, @"import \{[^}]*\} from '[^']*';\r?\n?", "", RegexOptions.Multiline);
 
-            // Skip type alias lines
-            if (trimmed.StartsWith("type ") && trimmed.Contains("=")) continue;
+        // 3. Remove "import '...';" bare imports
+        js = Regex.Replace(js, @"import '[^']*';\r?\n?", "", RegexOptions.Multiline);
 
-            // Handle interface block start
-            if ((trimmed.StartsWith("interface ") || trimmed.StartsWith("export interface ")) && trimmed.EndsWith("{"))
-            {
-                inInterfaceBlock = true;
-                braceDepth = 1;
-                continue;
-            }
+        // 4. Remove "export type { ... };" lines
+        js = Regex.Replace(js, @"export type \{[^}]*\};\r?\n?", "", RegexOptions.Multiline);
 
-            // Track brace depth when inside interface block
-            if (inInterfaceBlock)
-            {
-                foreach (var ch in line)
-                {
-                    if (ch == '{') braceDepth++;
-                    else if (ch == '}') braceDepth--;
-                }
-                if (braceDepth <= 0)
-                    inInterfaceBlock = false;
-                continue;
-            }
+        // 5. Remove interface declarations (multi-line) — interface Foo { ... }
+        //    Iteratively remove to handle nesting
+        for (var i = 0; i < 5; i++)
+            js = Regex.Replace(js, @"(export\s+)?interface\s+\w+[^{]*\{[^{}]*\}", "", RegexOptions.Singleline);
 
-            // Replace export function with function
-            var processed = line.Replace("export function ", "function ");
+        // 6. Remove type alias declarations — type Foo = ...;
+        js = Regex.Replace(js, @"(export\s+)?type\s+\w+\s*=\s*[^;]+;", "", RegexOptions.Multiline);
 
-            // Replace export const with var
-            processed = processed.Replace("export const ", "var ");
+        // 7. Remove generic type parameters from function declarations: function foo<T>( -> function foo(
+        js = Regex.Replace(js, @"((?:function|export function)\s+\w+)\s*<[^>]*>(?=\s*\()", "$1");
 
-            result.Add(processed);
-        }
+        // 8. Remove complex return type annotations that include generics/object types
+        //    Heuristic: ): ReturnType { -> ) {
+        //    Also handles inline object types like ): { q: number; r: number } {
+        js = Regex.Replace(js, @"\)[ \t]*:[ \t]*(?:void|boolean|number|string|never|null|undefined|\{[^{}]*\}|[A-Za-z_$][A-Za-z0-9_$<>;\[\]|& ,.\{\}':]*)[ \t]*\{",
+            ") {");
 
-        return string.Join("\n", result);
+        // 9. Remove "as unknown as Type" type assertions
+        js = Regex.Replace(js, @"\s+as\s+unknown\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*", "");
+
+        // 10. Remove "as Type<...>" assertions (with generics)
+        js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*\s*<[A-Za-z0-9_$\s,\[\]|&\.'{}:]*>", "");
+
+        // 10b. Remove "as { inline: object }" type assertions
+        js = Regex.Replace(js, @"\s+as\s+\{[^{}]*\}(?=[;\)\]\},\s])", "");
+
+        // 11. Remove plain "as Type" and "as Type[]" assertions
+        js = Regex.Replace(js, @"\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*(?:\[\])*(?=[;\)\]\},\s\[])", "");
+
+        // 12. Remove variable type annotations: const x: Type = / let x: Type = / var x: Type =
+        //     Also handles index signature types like { [key: string]: boolean }
+        js = Regex.Replace(js, @"((?:const|let|var)[ \t]+\w+)[ \t]*:[ \t]*(?:\{[^{}]*\}|[A-Za-z_$][A-Za-z0-9_$<>;\[\]|&:{ },.\\']*)[ \t]*(?==)", "$1");
+
+        // 13. Remove generic type arguments from new expressions: new Set<string>() -> new Set()
+        //     And from Array.from<X>( -> Array.from(
+        for (var i = 0; i < 4; i++)
+            js = Regex.Replace(js, @"([A-Za-z_$][A-Za-z0-9_$.]*)\s*<[A-Za-z0-9_$\s,\[\]|&\.'{}:]*>(?=[()\[\]{}\s;,])", "$1");
+
+        // 14a. Remove inline object type param annotations: (d: { q: number; r: number }) -> (d)
+        //      Also handles index signature: (keys: { [key: string]: boolean }) -> (keys)
+        //      Only strip when the object content looks like a TS type:
+        //      - Contains ';' (semicolon-delimited type members): { q: number; r: number }
+        //      - OR starts with '[' (index signature): { [key: string]: boolean }
+        //      NOT regular object literals with comma separators like { q: 1, r: 2 }
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*\{[^{}]*;[^{}]*\}(?=\s*[,)])", "$1");
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*\{\s*\[[^\]]*\][^{}]*\}(?=\s*[,)])", "$1");
+
+        // 14b. Remove complex param type annotations like "tiles: Array<{ id: string; ... }>"
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]]*\s*<\{[^}]*\}>(?=\s*[,)])", "$1");
+
+        // 15. Remove : TypeAnnotation from function parameters — (param: Type) -> (param)
+        //     Only match types that start with uppercase (PascalCase) or known primitives.
+        js = Regex.Replace(js, @"(\w+)\??\s*:\s*(?:(?:number|string|boolean|void|never|null|undefined|any)(?:\[\])*|typeof\s+\w+(?:\.\w+)*|[A-Z](?![A-Z_]*\s*[,)=])[A-Za-z0-9_$<>\[\]|& \t\.']*)\s*(?=\s*[,)=])", "$1");
+
+        // 16. Replace "export const name: Type = " -> "var name = "
+        js = Regex.Replace(js, @"export const (\w+)\s*(?::\s*[A-Za-z_$][A-Za-z0-9_$<>\[\]|&\s,\.]*\s*)?=\s*", "var $1 = ");
+
+        // 17. Remove remaining "export function" -> "function"
+        js = Regex.Replace(js, @"export function", "function");
+
+        // 18. Remove "export default" -> ""
+        js = Regex.Replace(js, @"export default\s+", "");
+
+        return js;
     }
 }

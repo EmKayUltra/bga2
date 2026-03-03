@@ -36,6 +36,11 @@ public static class DevEndpoints
         dev.MapPost("/{sessionId:guid}/set-state", SetState)
             .WithName("DevSetState")
             .WithSummary("Shallow-merge arbitrary JSON properties onto the current game state");
+
+        // POST /dev/{sessionId}/move — submit a move without auth (dev/testing only)
+        dev.MapPost("/{sessionId:guid}/move", SubmitMove)
+            .WithName("DevSubmitMove")
+            .WithSummary("Submit a game move bypassing authentication (dev testing only)");
     }
 
     /// <summary>
@@ -124,6 +129,35 @@ public static class DevEndpoints
         var validMoves = hookExecutor.GetValidMoves(hooksSource, newStateJson, currentPlayer, round);
 
         return Results.Ok(new GameStateResponse(session.Id, session.GameId, session.State, session.Version, validMoves));
+    }
+
+    /// <summary>
+    /// Submits a game move without authentication.
+    /// Used by the test harness bot runner and automated integration tests.
+    /// </summary>
+    private static async Task<IResult> SubmitMove(
+        Guid sessionId,
+        MoveRequest move,
+        GameService gameService)
+    {
+        var result = await gameService.ValidateAndApplyMove(sessionId, move);
+
+        var response = new MoveResponse(
+            Valid: result.IsValid,
+            State: result.NewState,
+            ValidMoves: result.ValidMoves,
+            Errors: result.Errors,
+            Version: result.Version
+        );
+
+        if (!result.IsValid)
+        {
+            if (result.IsConcurrencyConflict)
+                return Results.Conflict(response);
+            return Results.BadRequest(response);
+        }
+
+        return Results.Ok(response);
     }
 
     /// <summary>

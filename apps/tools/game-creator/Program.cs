@@ -4,4 +4,5 @@ using Bga2.GameCreator.Commands;
 var rootCommand = new RootCommand("BGA2 Game Creator — AI-powered game package generator");
 rootCommand.AddCommand(IngestCommand.Create());
 rootCommand.AddCommand(GenerateCommand.Create());
+rootCommand.AddCommand(DeployCommand.Create());
 return await rootCommand.InvokeAsync(args);

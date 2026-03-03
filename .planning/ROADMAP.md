@@ -108,7 +108,13 @@ Plans:
   2. After spec approval, the tool generates a game.json + hooks.ts that load and run in the engine's local test harness with no manual edits required for the happy path
   3. The hot-reload test harness detects file changes and restarts the local engine within three seconds; a developer can jump to any game state and test a specific scenario without replaying preceding moves
   4. The human review gate produces a structured checklist and discrepancy report listing rules the AI flagged as ambiguous or unresolved; a second game ships to production using this pipeline
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] 05-01a-PLAN.md -- Engine extension: freeform zone type (FreeformZone class, ZoneType union, ZoneFactory)
+- [ ] 05-01b-PLAN.md -- (planned)
+- [ ] 05-02-PLAN.md -- (planned)
+- [ ] 05-03-PLAN.md -- (planned)
 
 ### Phase 6: Player Platform
 **Goal**: The platform has a front door — players can discover games, watch live matches, replay completed games, and subscribe to unlock content — it feels like a product, not a prototype
@@ -133,9 +139,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from 
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
 | 4. Async + Notifications | 5/5 | Complete   | 2026-03-02 |
-| 5. AI Game Creation Toolkit | TBD | Not started | - |
+| 5. AI Game Creation Toolkit | 1/4 | In progress | - |
 | 6. Player Platform | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-28*
-*Last updated: 2026-03-02 — Phase 4 complete: 5/5 plans, 8/8 verification pass*
+*Last updated: 2026-03-02 — Phase 5 started: 05-01a complete (freeform zone extension)*

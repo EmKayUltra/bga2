@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 4 of 6 — COMPLETE (Async + Notifications)
-Plans: 5/5 complete (04-01: async foundation, 04-02: deadline/email service, 04-03: Web Push client, 04-04: settings UI, 04-05: gap closure)
-Status: Phase 4 complete. Verification passed 8/8 must-haves. All requirements satisfied: MULT-02, NOTF-01, NOTF-02, NOTF-03, NOTF-04.
-Last activity: 2026-03-02 — Phase 4 verified and closed. Gap closure (04-05) added unlimited timer, escalating reminders, digest mode, per-game opt-out.
+Phase: 5 of 6 — IN PROGRESS (AI Game Creation Toolkit)
+Plans: 1/4 complete (05-01a: freeform zone extension)
+Status: Phase 5 started. Plan 05-01a complete — FreeformZone added to engine, ZoneType extended with 'freeform', ZoneFactory updated.
+Last activity: 2026-03-02 — Phase 5 started. 05-01a complete (freeform zone extension).
 
-Progress: [████████░░] 67% (4 of 6 phases complete)
+Progress: [████████░░] 70% (4 phases + 1 plan complete)
 
 ## Performance Metrics
 
@@ -116,6 +116,7 @@ Recent decisions affecting current work:
 - [Phase 04-05]: Escalating reminders only schedule offsets within timer window — fast (12h) game only gets 1h reminder, slow (72h) gets all three
 - [Phase 04-05]: Digest deferral uses "email-pending-digest" channel in NotificationLog — reuses existing idempotency infrastructure as pending queue
 - [Phase 04-05]: Push notifications always fire immediately even in daily_digest mode — push is inherently real-time, only email gets batched
+- [Phase 05-01a]: FreeformZone stores pieces by ID only — position tracked externally in game-specific state (e.g., HiveGameData.placedPieceCoords); zone owns membership, game owns coordinates
 
 ### Pending Todos
 
@@ -153,5 +154,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Phase 4 complete and verified (8/8). Ready for Phase 5 (AI Game Creation Toolkit).
+Stopped at: Phase 5 Plan 01a complete (freeform zone extension). Ready for Plan 05-01b or 05-02.
 Resume file: none

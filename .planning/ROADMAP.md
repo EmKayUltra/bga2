@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Azul + First Playable** - Full Azul game implementation proving the engine end-to-end: server-authoritative rules, PostgreSQL persistence, REST API, and SvelteKit game view (completed 2026-03-01)
 - [x] **Phase 3: Multiplayer + Social** - Real-time play via AppSync Events, lobby system, player profiles, friend system, and PWA installability (completed 2026-03-02)
 - [x] **Phase 4: Async + Notifications** - Async turn-based game mode with configurable timers, email notifications, Web Push, and player notification preferences (completed 2026-03-02)
-- [ ] **Phase 5: AI Game Creation Toolkit** - Local-first C# tool for ingesting rulebooks and generating deployable game packages via LLM pipeline with mandatory human review gate
+- [x] **Phase 5: AI Game Creation Toolkit** - Local-first C# tool for ingesting rulebooks and generating deployable game packages via LLM pipeline with mandatory human review gate (completed 2026-03-03)
 - [ ] **Phase 6: Player Platform** - Game library, spectator mode, game replay, Stripe subscription integration, and PWA polish
 
 ## Phase Details
@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from 
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
 | 4. Async + Notifications | 5/5 | Complete   | 2026-03-02 |
-| 5. AI Game Creation Toolkit | 4/5 | In Progress|  |
+| 5. AI Game Creation Toolkit | 5/5 | Complete   | 2026-03-03 |
 | 6. Player Platform | TBD | Not started | - |
 
 ---

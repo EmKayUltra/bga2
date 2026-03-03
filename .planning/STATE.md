@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-03T00:51:00.000Z"
+last_updated: "2026-03-03T01:25:23.277Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 28
-  completed_plans: 27
+  completed_plans: 28
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 5 IN PROGRESS — 4/4 plans complete (05-01a, 05-01b, 05-02, 05-03). Hive game package shipped. Phase 5 complete pending 05-04 (AI code generation pipeline review gate).
+**Current focus:** Phase 5 COMPLETE — 5/5 plans complete (05-01a, 05-01b, 05-02, 05-03, 05-04). Deploy command, end-to-end Hive validation, all AIGC requirements satisfied. Ready for Phase 6.
 
 ## Current Position
 
-Phase: 5 of 6 — IN PROGRESS (AI Game Creation Toolkit)
-Plans: 4/4 complete (05-01a, 05-01b, 05-02, 05-03)
-Status: Hive game package complete with 29 passing tests. All 5 piece types implemented with One Hive Rule, Freedom-to-Move, beetle stacking, win condition. Server supports Hive game creation. Phase 5 complete — all planned work done.
-Last activity: 2026-03-03 — 05-03 complete (Hive game package: hooks.ts with all 5 piece types, hex.ts utilities, 29 unit tests, GameService.CreateGame Hive support).
+Phase: 5 of 6 — COMPLETE (AI Game Creation Toolkit)
+Plans: 5/5 complete (05-01a, 05-01b, 05-02, 05-03, 05-04)
+Status: Phase 5 fully complete. Deploy command packages/uploads game bundles to S3. Hive game validated end-to-end: 10/10 bot runs pass, 29 unit tests pass, Jint validation clean. All AIGC-01 through AIGC-07 satisfied.
+Last activity: 2026-03-03 — 05-04 complete (deploy command + e2e verification: TypeScript stripping fixes, ValidMove data coordinates, bot validation).
 
-Progress: [█████████░] 79% (4 phases + 4 plans complete)
+Progress: [██████████] 100% (5 phases + 5 plans complete = Phase 5 done)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [█████████░] 79% (4 phases + 4 plans complete)
 | Phase 04 P05 | 13 | 3 tasks | 14 files |
 | Phase 05-ai-game-creation-toolkit P01b | 13 | 1 tasks | 12 files |
 | Phase 05 P02 | 15 | 2 tasks | 9 files |
+| Phase 05 P04 | 35 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,9 @@ Recent decisions affecting current work:
 - [Phase 05-03]: Beetle on stack uses fullOccupiedSet (not occupiedWithout) for gate calculations — the hex below the beetle is still occupied by the piece underneath, so it stays in the obstacle set
 - [Phase 05-03]: Spider DFS copies visited set per branch to allow independent paths to depth 3; Ant BFS uses global inQueue to avoid redundant traversal
 - [Phase 05-03]: turnNumber is 0-indexed player-specific turn count; forced queen placement triggers at turnNumber >= 3 (fourth turn, 0-indexed); NX project name is games-hive not hive
+- [Phase 05-04]: TypeScript stripping distinguishes type annotations from object literals via semicolon (;) vs comma (,) — type objects use ; (interface style), runtime objects use ,
+- [Phase 05-04]: ValidMove record gains Data field carrying q/r coordinates — enables bot/client to submit moves without parsing description strings
+- [Phase 05-04]: POST /dev/{sessionId}/move added to DevEndpoints bypassing auth — parallels existing dev manipulation endpoints, scoped to dev/testing only
 
 ### Pending Todos
 
@@ -161,8 +165,16 @@ Recent decisions affecting current work:
 - Verification: Puppeteer 4/4 moves pass. Bug fixes: TS stripper SCREAMING_SNAKE, white color, z-order animation (bringToFront), floor slot visibility (slotFill/slotStroke contrast)
 - Non-blocking warnings carried: PixiJS `color -7306` on re-render, FSM `SUBMIT_MOVE to stopped actor`
 
+## Phase 5 Status — COMPLETE
+
+- Plan 01a (CLI ingest): COMPLETE — PDF/text rulebook ingestion, structured markdown output
+- Plan 01b (LLM generate + review): COMPLETE — SpecGenerator, CodeGenerator, ReviewReporter; Anthropic API structured output
+- Plan 02 (test harness): COMPLETE — /dev/harness with virtual:game-list auto-discovery, bot runner, dev panel, hot-reload
+- Plan 03 (Hive game): COMPLETE — 29 unit tests, 5 piece types, One Hive Rule, beetle stacking, win condition
+- Plan 04 (deploy + e2e): COMPLETE — deploy command packages/validates to zip/S3; Hive 10/10 bot runs; TypeScript stripping fixes; ValidMove data coordinates
+
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 05-03-PLAN.md (Hive game package). Phase 5 4/4 plans complete. Ready for Phase 5 completion verification or Phase 6.
+Stopped at: Completed 05-04-PLAN.md (deploy command + e2e verification). Phase 5 5/5 plans complete. All AIGC requirements satisfied. Ready for Phase 6.
 Resume file: none

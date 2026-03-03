@@ -68,7 +68,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **AIGC-04**: Hot-reload test harness with file watcher and local engine
 - [x] **AIGC-05**: Game state manipulation for testing specific scenarios (jump to any state)
 - [x] **AIGC-06**: Human review gate with structured checklist and discrepancy report
-- [ ] **AIGC-07**: Package and deploy game bundle to S3
+- [x] **AIGC-07**: Package and deploy game bundle to S3
 
 ### Infrastructure
 
@@ -172,7 +172,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AIGC-04 | Phase 5 | Complete |
 | AIGC-05 | Phase 5 | Complete |
 | AIGC-06 | Phase 5 | Complete |
-| AIGC-07 | Phase 5 | Pending |
+| AIGC-07 | Phase 5 | Complete |
 | PEXP-01 | Phase 6 | Pending |
 | PEXP-02 | Phase 6 | Pending |
 | PEXP-03 | Phase 6 | Pending |

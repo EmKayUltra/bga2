@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-03T00:30:15.257Z"
+last_updated: "2026-03-03T00:39:50.500Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 28
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 5 of 6 — IN PROGRESS (AI Game Creation Toolkit)
-Plans: 1/4 complete (05-01a: freeform zone extension)
-Status: Phase 5 started. Plan 05-01a complete — FreeformZone added to engine, ZoneType extended with 'freeform', ZoneFactory updated.
-Last activity: 2026-03-02 — Phase 5 started. 05-01a complete (freeform zone extension).
+Plans: 3/4 complete (05-01a, 05-01b, 05-02)
+Status: Plans 05-01a, 05-01b, 05-02 complete. Test harness at /dev/harness with HMR, bot validator, schema validation, scenario management. Ready for 05-03 (AI code generation pipeline).
+Last activity: 2026-03-02 — 05-02 complete (browser test harness with chokidar HMR, virtual:game-list, PixiJS renderer, dev panel, random bot validator, scenario management).
 
-Progress: [████████░░] 70% (4 phases + 1 plan complete)
+Progress: [████████░░] 75% (4 phases + 3 plans complete)
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [████████░░] 70% (4 phases + 1 plan complete)
 | Phase 04 P02 | 7 | 2 tasks | 6 files |
 | Phase 04 P05 | 13 | 3 tasks | 14 files |
 | Phase 05-ai-game-creation-toolkit P01b | 13 | 1 tasks | 12 files |
+| Phase 05 P02 | 15 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,8 @@ Recent decisions affecting current work:
 - [Phase 04-05]: Push notifications always fire immediately even in daily_digest mode — push is inherently real-time, only email gets batched
 - [Phase 05-01a]: FreeformZone stores pieces by ID only — position tracked externally in game-specific state (e.g., HiveGameData.placedPieceCoords); zone owns membership, game owns coordinates
 - [Phase 05]: Anthropic C# SDK 12.x uses OutputConfig.Format (JsonOutputFormat) for structured output — not tool-use workaround. CodeGenerator uses tool_use for mixed-type response (gameJson object + hooksTs string). PdfPig NuGet ID is 'PdfPig' not 'UglyToad.PdfPig'. Anthropic SDK Create() not CreateAsync(); Tools array needs ToolUnion[] wrapper.
+- [Phase 05-02]: virtual:game-list TypeScript declaration in virtual.d.ts — app.d.ts export{} makes it a module file where ambient declare module doesn't register; separate virtual.d.ts resolves
+- [Phase 05-02]: import.meta.glob for game.json loading (not dynamic string import) — Vite requires static analysis; glob creates a map keyed by computed path, runtime lookup by gameId
 
 ### Pending Todos
 

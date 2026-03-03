@@ -139,7 +139,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 (can parallel-track from 
 | 2. Azul + First Playable | 4/4 | Complete   | 2026-03-01 |
 | 3. Multiplayer + Social | 7/7 | Complete   | 2026-03-02 |
 | 4. Async + Notifications | 5/5 | Complete   | 2026-03-02 |
-| 5. AI Game Creation Toolkit | 1/4 | In progress | - |
+| 5. AI Game Creation Toolkit | 3/5 | In Progress|  |
 | 6. Player Platform | TBD | Not started | - |
 
 ---

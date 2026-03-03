@@ -14,3 +14,10 @@ declare global {
 }
 
 export {};
+
+// Virtual module provided by the gameWatcherPlugin in vite.config.ts
+// Dynamically enumerates libs/games/*/ directories containing game.json
+declare module 'virtual:game-list' {
+	const gameList: string[];
+	export default gameList;
+}

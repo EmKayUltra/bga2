@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { browser } from '$app/environment';
   import { createTestGame, fetchGameState, fetchGameConfig, loadScenario, exportScenario, triggerRoundEnd, triggerGameEnd, setState, discoverGames, getApiBase } from './harness.js';
   import { runBotValidation } from './botRunner.js';
@@ -8,6 +8,8 @@
 
   // PixiJS cannot be imported during SSR (requires navigator/window)
   let SceneManager: any = null;
+  let HiveSceneClass: any = null;
+  let PixiAdapterClass: any = null;
 
   let availableGames = $state<string[]>([]);
   let selectedGame = $state('');
@@ -22,8 +24,42 @@
   let autoBot = $state(false);
   let schemaErrors = $state<{ field: string; message: string }[]>([]);
   let rendererContainer: HTMLElement;
-  let sceneManager: SceneManager | null = null;
+  let sceneManager = $state<any>(null);
+  let hiveScene = $state<any>(null);
+  let hiveRenderer = $state<any>(null);
+  let showRenderer = $state(false);
   let rendererError = $state('');
+  let hoverInfo = $state('');
+  let panelCollapsed = $state(false);
+  let infoCollapsed = $state(false);
+
+  function resizeAndReset() {
+    if (!rendererContainer) return;
+    const w = rendererContainer.clientWidth;
+    const h = rendererContainer.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (hiveRenderer) {
+      hiveRenderer.resize(w, h);
+      hiveRenderer.resetView();
+      // Re-render scene so it redraws at the new size
+      if (hiveScene && gameState) {
+        hiveScene.renderState(gameState as any, validMoves as any[]);
+      }
+    }
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  async function toggleInfo() {
+    infoCollapsed = !infoCollapsed;
+    await tick();
+    setTimeout(resizeAndReset, 200);
+  }
+
+  async function togglePanel() {
+    panelCollapsed = !panelCollapsed;
+    await tick();
+    setTimeout(resizeAndReset, 200);
+  }
 
   // Dev panel inputs
   let setScorePlayer = $state(0);
@@ -54,20 +90,74 @@
       await refreshState();
       console.log('[harness] state loaded, gameState:', gameState ? 'present' : 'null');
 
-      // Step 3: Wire PixiJS SceneManager for visual rendering (only for games with renderer support)
+      // Step 3: Wire PixiJS renderer for visual rendering
       if (sceneManager) { sceneManager.destroy(); sceneManager = null; }
-      const supportedRenderers = ['azul'];
-      if (rendererContainer && SceneManager && supportedRenderers.includes(selectedGame)) {
+      if (hiveScene) { hiveScene.destroy(); hiveScene = null; }
+      if (hiveRenderer) { hiveRenderer.destroy(); hiveRenderer = null; }
+
+      if (selectedGame === 'hive' && rendererContainer && HiveSceneClass && PixiAdapterClass) {
+        // Hive: use PixiAdapter + HiveScene directly (bypasses SceneManager)
+        showRenderer = true;
+        await tick();
         try {
-          sceneManager = new SceneManager(rendererContainer, gameConfig as GameConfig);
-          await sceneManager.init(sessionId);
+          const renderer = new PixiAdapterClass();
+          await renderer.init(rendererContainer, { worldWidth: 1000, worldHeight: 1000, background: 0x1a1a2e });
+          renderer.enableViewport({
+            screenWidth: rendererContainer.clientWidth,
+            screenHeight: rendererContainer.clientHeight,
+            worldWidth: 1000,
+            worldHeight: 1000,
+          });
+          hiveRenderer = renderer;
+          const scene = new HiveSceneClass(renderer);
+          scene.onMove(async (move: any) => {
+            if (!sessionId || !gameState) return;
+            try {
+              const playerId = (gameState.players as any[])?.[gameState.currentPlayerIndex as number]?.id;
+              const res = await fetch(`${getApiBase()}/dev/${sessionId}/move`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerId, ...move }),
+              });
+              if (!res.ok) {
+                const errBody = await res.text();
+                error = `Move failed: ${res.status} — ${errBody}`;
+                return;
+              }
+              await refreshState();
+            } catch (e) {
+              error = `Move error: ${String(e)}`;
+            }
+          });
+          scene.onHover((info: string) => { hoverInfo = info; });
+          hiveScene = scene;
+          if (gameState) {
+            scene.renderState(gameState as any, validMoves as any[]);
+          }
         } catch (e) {
-          rendererError = `PixiJS renderer failed: ${String(e)}. Falling back to JSON viewer.`;
-          sceneManager = null;
+          rendererError = `Hive renderer failed: ${String(e)}. Falling back to JSON viewer.`;
+          hiveScene = null;
+          hiveRenderer = null;
+          showRenderer = false;
         }
-      } else if (sceneManager) {
-        sceneManager.destroy();
-        sceneManager = null;
+      } else {
+        // Azul and other games with SceneManager support
+        const supportedRenderers = ['azul'];
+        const wantsRenderer = rendererContainer && SceneManager && supportedRenderers.includes(selectedGame);
+        if (wantsRenderer) {
+          showRenderer = true;
+          await tick();
+          try {
+            sceneManager = new SceneManager(rendererContainer, gameConfig as GameConfig);
+            await sceneManager.init(sessionId);
+          } catch (e) {
+            rendererError = `PixiJS renderer failed: ${String(e)}. Falling back to JSON viewer.`;
+            sceneManager = null;
+            showRenderer = false;
+          }
+        } else {
+          showRenderer = false;
+        }
       }
 
       // Step 4: Auto-bot validation
@@ -84,6 +174,11 @@
       gameState = typeof data.state === 'string' ? JSON.parse(data.state) : data.state;
       validMoves = data.validMoves || [];
       stateVersion = data.version || 0;
+
+      // Update HiveScene if active
+      if (hiveScene && gameState) {
+        hiveScene.renderState(gameState as any, validMoves as any[]);
+      }
     } catch (e) {
       error = String(e);
     }
@@ -171,12 +266,23 @@
   }
 
   onMount(async () => {
-    // Dynamically import PixiJS-dependent SceneManager (browser-only, crashes in SSR)
+    // Dynamically import PixiJS-dependent modules (browser-only, crashes in SSR)
     try {
       const mod = await import('$lib/engine/SceneManager.js');
       SceneManager = mod.SceneManager;
     } catch (e) {
       console.warn('SceneManager not available:', e);
+    }
+
+    try {
+      const [hiveMod, pixiMod] = await Promise.all([
+        import('$lib/engine/HiveScene.js'),
+        import('@bga2/engine-core'),
+      ]);
+      HiveSceneClass = hiveMod.HiveScene;
+      PixiAdapterClass = pixiMod.PixiAdapter;
+    } catch (e) {
+      console.warn('HiveScene/PixiAdapter not available:', e);
     }
 
     // Discover available games dynamically from libs/games/*/
@@ -189,6 +295,8 @@
 
   onDestroy(() => {
     if (sceneManager) { sceneManager.destroy(); sceneManager = null; }
+    if (hiveScene) { hiveScene.destroy(); hiveScene = null; }
+    if (hiveRenderer) { hiveRenderer.destroy(); hiveRenderer = null; }
   });
 </script>
 
@@ -209,6 +317,14 @@
       {#if sessionId}
         <span class="session-id">Session: {sessionId.slice(0, 8)}...</span>
       {/if}
+      <div class="toggle-buttons">
+        <button class="toggle-btn" onclick={toggleInfo} title="Toggle info panels">
+          {infoCollapsed ? 'Show Info' : 'Hide Info'}
+        </button>
+        <button class="toggle-btn" onclick={togglePanel} title="Toggle dev panel">
+          {panelCollapsed ? 'Show Panel' : 'Hide Panel'}
+        </button>
+      </div>
     </div>
     {#if error}
       <div class="error">{error}</div>
@@ -216,56 +332,66 @@
   </header>
 
   <div class="harness-body">
-    <!-- Main area: PixiJS renderer + state viewer -->
-    <main class="state-viewer">
-      <!-- PixiJS Renderer Container — hidden when no renderer active -->
-      <div class="renderer-container" class:renderer-hidden={!sceneManager && !!sessionId} bind:this={rendererContainer}></div>
-      {#if rendererError}
-        <div class="renderer-error">{rendererError}</div>
-      {/if}
-      {#if schemaErrors.length > 0}
-        <details class="schema-errors" open>
-          <summary>Schema Validation Errors ({schemaErrors.length})</summary>
-          <ul>
-            {#each schemaErrors as err}
-              <li><strong>{err.field}</strong>: {err.message}</li>
-            {/each}
-          </ul>
-        </details>
-      {/if}
-      {#if gameState}
-        <div class="state-summary">
-          <span>Game: <strong>{gameState.gameId as string || selectedGame}</strong></span>
-          <span>Phase: <strong>{gameState.phase as string}</strong></span>
-          <span>Round: <strong>{gameState.round as number}</strong></span>
-          <span>Turn: <strong>{(gameState.players as { name: string }[])?.[gameState.currentPlayerIndex as number]?.name || '?'}</strong></span>
-          <span>Finished: <strong>{gameState.finished ? 'YES' : 'no'}</strong></span>
-          {#if gameState.winnerId}
-            <span>Winner: <strong>{gameState.winnerId as string}</strong></span>
+    <div class="main-column">
+      <!-- Renderer area — fixed, never scrolls -->
+      <div class="renderer-area" class:renderer-expanded={infoCollapsed}>
+        <div class="renderer-container" class:renderer-hidden={!showRenderer} bind:this={rendererContainer}></div>
+        {#if showRenderer && hoverInfo}
+          <div class="hover-tooltip">{hoverInfo}</div>
+        {/if}
+        {#if rendererError}
+          <div class="renderer-error">{rendererError}</div>
+        {/if}
+      </div>
+
+      <!-- Info panel — scrolls independently -->
+      {#if !infoCollapsed}
+        <div class="info-panel">
+          {#if schemaErrors.length > 0}
+            <details class="schema-errors" open>
+              <summary>Schema Validation Errors ({schemaErrors.length})</summary>
+              <ul>
+                {#each schemaErrors as err}
+                  <li><strong>{err.field}</strong>: {err.message}</li>
+                {/each}
+              </ul>
+            </details>
+          {/if}
+          {#if gameState}
+            <div class="state-summary">
+              <span>Game: <strong>{gameState.gameId as string || selectedGame}</strong></span>
+              <span>Phase: <strong>{gameState.phase as string}</strong></span>
+              <span>Round: <strong>{gameState.round as number}</strong></span>
+              <span>Turn: <strong>{(gameState.players as { name: string }[])?.[gameState.currentPlayerIndex as number]?.name || '?'}</strong></span>
+              <span>Finished: <strong>{gameState.finished ? 'YES' : 'no'}</strong></span>
+              {#if gameState.winnerId}
+                <span>Winner: <strong>{gameState.winnerId as string}</strong></span>
+              {/if}
+            </div>
+            <div class="scores">
+              {#each (gameState.players as { name: string; score: number }[]) || [] as player, i}
+                <span class:active={i === (gameState.currentPlayerIndex as number)}>
+                  {player.name}: {player.score}
+                </span>
+              {/each}
+            </div>
+            <details open>
+              <summary>Valid Moves ({validMoves.length})</summary>
+              <pre class="moves-list">{JSON.stringify(validMoves, null, 2)}</pre>
+            </details>
+            <details>
+              <summary>Full State (v{stateVersion})</summary>
+              <pre class="state-json">{JSON.stringify(gameState, null, 2)}</pre>
+            </details>
+          {:else}
+            <p class="placeholder">Select a game and click "New Game" to start testing.</p>
           {/if}
         </div>
-        <div class="scores">
-          {#each (gameState.players as { name: string; score: number }[]) || [] as player, i}
-            <span class:active={i === (gameState.currentPlayerIndex as number)}>
-              {player.name}: {player.score}
-            </span>
-          {/each}
-        </div>
-        <details open>
-          <summary>Valid Moves ({validMoves.length})</summary>
-          <pre class="moves-list">{JSON.stringify(validMoves, null, 2)}</pre>
-        </details>
-        <details>
-          <summary>Full State (v{stateVersion})</summary>
-          <pre class="state-json">{JSON.stringify(gameState, null, 2)}</pre>
-        </details>
-      {:else}
-        <p class="placeholder">Select a game and click "New Game" to start testing.</p>
       {/if}
-    </main>
+    </div>
 
     <!-- Dev Panel -->
-    <aside class="dev-panel">
+    <aside class="dev-panel" class:panel-hidden={panelCollapsed}>
       <h3>State Actions</h3>
       <div class="panel-group">
         <button onclick={doTriggerRoundEnd} disabled={!sessionId}>Trigger Round End</button>
@@ -360,6 +486,21 @@
     cursor: pointer;
   }
   .controls button:hover { background: #3a3a6e; }
+  .toggle-buttons {
+    margin-left: auto;
+    display: flex;
+    gap: 0.25rem;
+  }
+  .toggle-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    background: #2a2a4e;
+    color: #aaa;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .toggle-btn:hover { background: #3a3a6e; color: #e0e0e0; }
   .session-id {
     font-family: monospace;
     font-size: 0.85rem;
@@ -377,11 +518,37 @@
     display: flex;
     flex: 1;
     overflow: hidden;
+    min-height: 0;
   }
-  .state-viewer {
+  .main-column {
     flex: 1;
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .renderer-area {
+    flex: 0 0 auto;
+    padding: 1rem 1rem 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .renderer-area.renderer-expanded {
+    flex: 1 1 0;
+    padding-bottom: 1rem;
+    min-height: 0;
+  }
+  .renderer-area.renderer-expanded .renderer-container {
+    flex: 1;
+    min-height: 200px;
+  }
+  .info-panel {
+    flex: 1 1 0;
     overflow-y: auto;
+    padding: 0.5rem 1rem 1rem;
+    min-height: 120px;
+    border-top: 1px solid #333;
   }
   .state-summary {
     display: flex;
@@ -407,13 +574,23 @@
     overflow-y: auto;
   }
   .renderer-container {
-    min-height: 400px;
+    height: 400px;
     background: #0a0a1a;
     border: 1px solid #333;
     border-radius: 4px;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
-  .renderer-container:empty, .renderer-hidden { display: none !important; }
+  .renderer-hidden { display: none !important; }
+  .hover-tooltip {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #e0e0e0;
+    background: #1a1a2e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.5rem;
+  }
   .renderer-error {
     padding: 0.5rem;
     background: #3c2e14;
@@ -442,6 +619,14 @@
     background: #12122a;
     border-left: 1px solid #333;
     overflow-y: auto;
+    flex-shrink: 0;
+    transition: width 0.15s ease, padding 0.15s ease;
+  }
+  .panel-hidden {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-left: none;
   }
   .dev-panel h3 {
     font-size: 0.85rem;

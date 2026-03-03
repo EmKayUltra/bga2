@@ -544,6 +544,7 @@ function isQueenSurrounded(queenPiece: any, fullOccupiedSet: { [key: string]: bo
 
 export function getValidMoves(ctx: HookContext): ValidMove[] {
   var state = ctx.state;
+  if (state.finished) return [];
   var playerIndex = state.currentPlayerIndex;
   var player = state.players[playerIndex];
   var playerData = player.data as any;

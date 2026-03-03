@@ -25,6 +25,8 @@ import {
   Graphics,
   Rectangle,
   Filter,
+  Text,
+  TextStyle,
 } from 'pixi.js';
 import { GlowFilter } from 'pixi-filters';
 import { Viewport } from 'pixi-viewport';
@@ -45,6 +47,21 @@ import type {
 const MIN_HIT_AREA_PX = 44;
 const TILE_SIZE = 48;
 const FACTORY_CIRCLE_R = 68;
+const HEX_SIZE = 30; // default hex radius for Hive pieces
+
+/**
+ * Generate vertices for a pointy-top hexagon centered at (0,0).
+ * Vertices start at -30° and go clockwise every 60°.
+ */
+function hexVertices(size: number): number[] {
+  const verts: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const angleDeg = 60 * i - 30;
+    const angleRad = (Math.PI / 180) * angleDeg;
+    verts.push(size * Math.cos(angleRad), size * Math.sin(angleRad));
+  }
+  return verts;
+}
 
 // ─── Color palette (warm + clean) ─────────────────────────────────────────────
 
@@ -148,6 +165,14 @@ export class PixiAdapter implements IRenderer {
     }
   }
 
+  /** Reset viewport to fit world and center it (default view). */
+  resetView(): void {
+    if (this.viewport) {
+      this.viewport.fit();
+      this.viewport.moveCenter(this.viewport.worldWidth / 2, this.viewport.worldHeight / 2);
+    }
+  }
+
   // ── Scene graph ──
 
   createSprite(textureId: string): ISpriteHandle {
@@ -201,6 +226,50 @@ export class PixiAdapter implements IRenderer {
       const h = parseFloat(parts[4] ?? '48');
       g.roundRect(0, 0, w, h, 4).fill({ color: COLORS.slotFill });
       g.stroke({ color: COLORS.slotStroke, width: 2 });
+    } else if (textureId.startsWith('hex-piece:')) {
+      // Format: "hex-piece:{defId}:{color}:{label}:{ownerIndex}"
+      // Filled pointy-top hexagon with owner-colored stroke + centered label text
+      const parts = textureId.split(':');
+      const colorStr = parts[2] ?? '#888888';
+      const label = parts[3] ?? '?';
+      const ownerIndex = parseInt(parts[4] ?? '0', 10);
+      const fillColor = cssColorToHex(colorStr);
+      const strokeColor = ownerIndex === 0 ? 0xffffff : 0x444444;
+      const verts = hexVertices(HEX_SIZE);
+      g.poly(verts, true).fill({ color: fillColor });
+      g.stroke({ color: strokeColor, width: 2.5 });
+
+      // Add centered label text — wrap hex + text in a Container
+      const hexContainer = new Container();
+      hexContainer.addChild(g);
+      const textStyle = new TextStyle({
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fontWeight: 'bold',
+        fill: ownerIndex === 0 ? 0x333333 : 0xffffff,
+      });
+      const txt = new Text({ text: label, style: textStyle });
+      txt.anchor = { x: 0.5, y: 0.5 } as any;
+      txt.x = 0;
+      txt.y = 0;
+      hexContainer.addChild(txt);
+
+      const hitSize = Math.max(HEX_SIZE * 2, MIN_HIT_AREA_PX);
+      hexContainer.hitArea = new Rectangle(-hitSize / 2, -hitSize / 2, hitSize, hitSize);
+      hexContainer.eventMode = 'static';
+
+      const id = nextHandleId();
+      this._handles.set(id, hexContainer);
+      return { _brand: 'sprite', id } as PixiSpriteHandle;
+    } else if (textureId.startsWith('hex-ghost:')) {
+      // Format: "hex-ghost:{color}"
+      // Semi-transparent outlined hex for valid destination indicators
+      const parts = textureId.split(':');
+      const colorStr = parts[1] ?? '#22c55e';
+      const ghostColor = cssColorToHex(colorStr);
+      const verts = hexVertices(HEX_SIZE);
+      g.poly(verts, true).fill({ color: ghostColor, alpha: 0.3 });
+      g.stroke({ color: ghostColor, width: 2, alpha: 0.7 });
     } else {
       g.rect(0, 0, 48, 48).fill({ color: 0xcccccc });
     }
@@ -208,7 +277,12 @@ export class PixiAdapter implements IRenderer {
     const obj = g as unknown as Container;
 
     // Enforce 44px minimum touch target (ENG-09)
-    obj.hitArea = new Rectangle(0, 0, Math.max(TILE_SIZE, MIN_HIT_AREA_PX), Math.max(TILE_SIZE, MIN_HIT_AREA_PX));
+    // Hex sprites are centered at (0,0), so offset hitArea accordingly
+    const isHex = textureId.startsWith('hex-piece:') || textureId.startsWith('hex-ghost:');
+    const hitSize = isHex ? Math.max(HEX_SIZE * 2, MIN_HIT_AREA_PX) : Math.max(TILE_SIZE, MIN_HIT_AREA_PX);
+    obj.hitArea = isHex
+      ? new Rectangle(-hitSize / 2, -hitSize / 2, hitSize, hitSize)
+      : new Rectangle(0, 0, hitSize, hitSize);
     obj.eventMode = 'static';
 
     const id = nextHandleId();

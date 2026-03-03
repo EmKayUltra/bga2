@@ -218,10 +218,8 @@
   <div class="harness-body">
     <!-- Main area: PixiJS renderer + state viewer -->
     <main class="state-viewer">
-      <!-- PixiJS Renderer Container — only shown for games with renderer support -->
-      {#if sceneManager || !sessionId}
-        <div class="renderer-container" bind:this={rendererContainer}></div>
-      {/if}
+      <!-- PixiJS Renderer Container — hidden when no renderer active -->
+      <div class="renderer-container" class:renderer-hidden={!sceneManager && !!sessionId} bind:this={rendererContainer}></div>
       {#if rendererError}
         <div class="renderer-error">{rendererError}</div>
       {/if}
@@ -415,7 +413,7 @@
     border-radius: 4px;
     margin-bottom: 1rem;
   }
-  .renderer-container:empty { display: none; }
+  .renderer-container:empty, .renderer-hidden { display: none !important; }
   .renderer-error {
     padding: 0.5rem;
     background: #3c2e14;

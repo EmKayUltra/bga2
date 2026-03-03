@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-03T00:39:50.500Z"
+last_updated: "2026-03-03T00:51:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 28
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Any board game can be faithfully digitized and played online — the engine handles the hard parts so creators focus on what makes their game unique.
-**Current focus:** Phase 4 COMPLETE — verified 8/8. Next: Phase 5 (AI Game Creation Toolkit)
+**Current focus:** Phase 5 IN PROGRESS — 4/4 plans complete (05-01a, 05-01b, 05-02, 05-03). Hive game package shipped. Phase 5 complete pending 05-04 (AI code generation pipeline review gate).
 
 ## Current Position
 
 Phase: 5 of 6 — IN PROGRESS (AI Game Creation Toolkit)
-Plans: 3/4 complete (05-01a, 05-01b, 05-02)
-Status: Plans 05-01a, 05-01b, 05-02 complete. Test harness at /dev/harness with HMR, bot validator, schema validation, scenario management. Ready for 05-03 (AI code generation pipeline).
-Last activity: 2026-03-02 — 05-02 complete (browser test harness with chokidar HMR, virtual:game-list, PixiJS renderer, dev panel, random bot validator, scenario management).
+Plans: 4/4 complete (05-01a, 05-01b, 05-02, 05-03)
+Status: Hive game package complete with 29 passing tests. All 5 piece types implemented with One Hive Rule, Freedom-to-Move, beetle stacking, win condition. Server supports Hive game creation. Phase 5 complete — all planned work done.
+Last activity: 2026-03-03 — 05-03 complete (Hive game package: hooks.ts with all 5 piece types, hex.ts utilities, 29 unit tests, GameService.CreateGame Hive support).
 
-Progress: [████████░░] 75% (4 phases + 3 plans complete)
+Progress: [█████████░] 79% (4 phases + 4 plans complete)
 
 ## Performance Metrics
 
@@ -122,6 +122,11 @@ Recent decisions affecting current work:
 - [Phase 05]: Anthropic C# SDK 12.x uses OutputConfig.Format (JsonOutputFormat) for structured output — not tool-use workaround. CodeGenerator uses tool_use for mixed-type response (gameJson object + hooksTs string). PdfPig NuGet ID is 'PdfPig' not 'UglyToad.PdfPig'. Anthropic SDK Create() not CreateAsync(); Tools array needs ToolUnion[] wrapper.
 - [Phase 05-02]: virtual:game-list TypeScript declaration in virtual.d.ts — app.d.ts export{} makes it a module file where ambient declare module doesn't register; separate virtual.d.ts resolves
 - [Phase 05-02]: import.meta.glob for game.json loading (not dynamic string import) — Vite requires static analysis; glob creates a map keyed by computed path, runtime lookup by gameId
+- [Phase 05-03]: hooks.ts inlines hex utilities for Jint — Jint does not support ES module imports; hex.ts exists for type-checked development and unit tests only; hooks.ts must be self-contained
+- [Phase 05-03]: isConnectedWithout in hooks.ts uses plain { [key: string]: boolean } objects not Set<string> — object property lookup is safer across Jint versions; hex.ts uses Set<string> (fine for Node/vitest)
+- [Phase 05-03]: Beetle on stack uses fullOccupiedSet (not occupiedWithout) for gate calculations — the hex below the beetle is still occupied by the piece underneath, so it stays in the obstacle set
+- [Phase 05-03]: Spider DFS copies visited set per branch to allow independent paths to depth 3; Ant BFS uses global inQueue to avoid redundant traversal
+- [Phase 05-03]: turnNumber is 0-indexed player-specific turn count; forced queen placement triggers at turnNumber >= 3 (fourth turn, 0-indexed); NX project name is games-hive not hive
 
 ### Pending Todos
 
@@ -158,6 +163,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: Phase 5 Plan 01a complete (freeform zone extension). Ready for Plan 05-01b or 05-02.
+Last session: 2026-03-03
+Stopped at: Completed 05-03-PLAN.md (Hive game package). Phase 5 4/4 plans complete. Ready for Phase 5 completion verification or Phase 6.
 Resume file: none

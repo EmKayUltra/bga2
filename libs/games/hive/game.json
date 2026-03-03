@@ -1,0 +1,53 @@
+{
+  "id": "hive",
+  "version": "1.0.0",
+  "title": "Hive",
+  "players": {
+    "min": 2,
+    "max": 2
+  },
+  "zones": [
+    {
+      "id": "board",
+      "type": "freeform",
+      "owner": "shared"
+    },
+    {
+      "id": "player-hand",
+      "type": "hand",
+      "owner": "player"
+    }
+  ],
+  "pieces": [
+    {
+      "id": "queen-bee",
+      "type": "token",
+      "fallback": { "shape": "hex", "color": "#F5C542", "label": "Q" }
+    },
+    {
+      "id": "beetle",
+      "type": "token",
+      "fallback": { "shape": "hex", "color": "#8E44AD", "label": "B" }
+    },
+    {
+      "id": "grasshopper",
+      "type": "token",
+      "fallback": { "shape": "hex", "color": "#2ECC71", "label": "G" }
+    },
+    {
+      "id": "spider",
+      "type": "token",
+      "fallback": { "shape": "hex", "color": "#A0522D", "label": "S" }
+    },
+    {
+      "id": "soldier-ant",
+      "type": "token",
+      "fallback": { "shape": "hex", "color": "#4A90D9", "label": "A" }
+    }
+  ],
+  "turnOrder": "sequential",
+  "hooks": {
+    "file": "hooks.ts",
+    "events": ["getValidMoves", "onMove", "onRoundEnd"]
+  }
+}

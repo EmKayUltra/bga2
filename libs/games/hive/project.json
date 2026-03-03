@@ -1,0 +1,23 @@
+{
+  "name": "games-hive",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "libs/games/hive/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --build tsconfig.json",
+        "cwd": "libs/games/hive"
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "configFile": "libs/games/hive/vitest.config.ts",
+        "reportsDirectory": "../../../coverage/libs/games/hive"
+      }
+    }
+  },
+  "tags": ["type:lib", "scope:games"]
+}

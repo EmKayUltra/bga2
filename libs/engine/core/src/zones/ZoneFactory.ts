@@ -9,6 +9,7 @@ import {
   HandZone,
   DeckZone,
   DiscardZone,
+  FreeformZone,
   type Zone,
 } from './Zone.js';
 
@@ -25,6 +26,8 @@ export const ZoneFactory = {
         return new DeckZone(def);
       case 'discard':
         return new DiscardZone(def);
+      case 'freeform':
+        return new FreeformZone(def);
       default: {
         const _exhaustive: never = def.type;
         throw new Error(`ZoneFactory: unknown zone type "${String(_exhaustive)}"`);

@@ -10,7 +10,7 @@
 // ─── Zone type enum ───────────────────────────────────────────────────────────
 
 /** The fundamental categories of board game zones. */
-export type ZoneType = 'grid' | 'stack' | 'hand' | 'deck' | 'discard';
+export type ZoneType = 'grid' | 'stack' | 'hand' | 'deck' | 'discard' | 'freeform';
 
 // ─── Zone render config ───────────────────────────────────────────────────────
 

@@ -223,3 +223,36 @@ export class DiscardZone extends Zone {
     return this.pile.splice(0);
   }
 }
+
+// ─── FreeformZone ──────────────────────────────────────────────────────────
+
+/**
+ * A zone where pieces have no fixed grid — they carry their own coordinates
+ * in their data/state field. Used for games with dynamic/growing boards
+ * like Hive where pieces define the board shape.
+ *
+ * Pieces are stored by ID. Position is tracked externally (in piece state or
+ * game-specific data structures like HiveGameData.placedPieceCoords).
+ * The renderer reads piece positions from game state to calculate pixel positions.
+ */
+export class FreeformZone extends Zone {
+  private readonly pieces: Map<string, Piece> = new Map();
+
+  addPiece(piece: Piece): void {
+    this.pieces.set(piece.id, piece);
+  }
+
+  removePiece(pieceId: string): Piece | null {
+    const piece = this.pieces.get(pieceId) ?? null;
+    this.pieces.delete(pieceId);
+    return piece;
+  }
+
+  getPieces(): Piece[] {
+    return Array.from(this.pieces.values());
+  }
+
+  hasPiece(pieceId: string): boolean {
+    return this.pieces.has(pieceId);
+  }
+}

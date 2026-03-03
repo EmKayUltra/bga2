@@ -9,5 +9,6 @@ export {
   HandZone,
   DeckZone,
   DiscardZone,
+  FreeformZone,
 } from './Zone.js';
 export { ZoneFactory } from './ZoneFactory.js';

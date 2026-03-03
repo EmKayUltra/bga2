@@ -1,13 +1,10 @@
 ---
 phase: 05-ai-game-creation-toolkit
-plan: "01"
+plan: "01b"
 type: execute
 wave: 1
 depends_on: []
 files_modified:
-  - libs/shared-types/src/zones.ts
-  - libs/engine/core/src/zones/Zone.ts
-  - libs/engine/core/src/zones/ZoneFactory.ts
   - apps/tools/game-creator/game-creator.csproj
   - apps/tools/game-creator/Program.cs
   - apps/tools/game-creator/Commands/IngestCommand.cs
@@ -29,18 +26,7 @@ must_haves:
     - "The tool generates game.json + hooks.ts from an approved game-spec.json via a second LLM call"
     - "Generated hooks.ts passes a Jint compatibility check (no import/export, no async, no ES modules)"
     - "A human-reviewable markdown report is generated with checklist items, [AMBIGUOUS] flags, and confidence levels"
-    - "The engine supports a 'freeform' zone type where pieces carry their own coordinates in their data field"
-    - "ZoneFactory creates FreeformZone instances without throwing 'unknown zone type'"
   artifacts:
-    - path: "libs/shared-types/src/zones.ts"
-      provides: "ZoneType extended with 'freeform' union member"
-      contains: "freeform"
-    - path: "libs/engine/core/src/zones/Zone.ts"
-      provides: "FreeformZone class — pieces stored by coordinate key, no fixed grid"
-      contains: "class FreeformZone"
-    - path: "libs/engine/core/src/zones/ZoneFactory.ts"
-      provides: "ZoneFactory handles 'freeform' type without exhaustive check failure"
-      contains: "FreeformZone"
     - path: "apps/tools/game-creator/game-creator.csproj"
       provides: "Standalone C# CLI project with Anthropic SDK, PdfPig, System.CommandLine"
       contains: "Anthropic"
@@ -82,11 +68,11 @@ user_setup:
 ---
 
 <objective>
-Build the C# CLI tool for AI game creation (two-stage LLM pipeline) and extend the engine with freeform zone support for Hive.
+Build the C# CLI tool for AI game creation (two-stage LLM pipeline).
 
-Purpose: This plan establishes the core AI game creation pipeline (AIGC-01, AIGC-02, AIGC-03, AIGC-06) and the engine extension needed for Hive's dynamic hex board. Without this, no games can be generated from rulebooks, and the freeform zone type needed by Hive does not exist.
+Purpose: This plan establishes the core AI game creation pipeline (AIGC-01, AIGC-02, AIGC-03, AIGC-06). Without this, no games can be generated from rulebooks. The tool runs locally on the developer's machine — it is NOT a Docker Compose service.
 
-Output: A working C# CLI tool at `apps/tools/game-creator/` with `ingest` and `generate` subcommands, freeform zone support in the engine, and a Jint compatibility validator.
+Output: A working C# CLI tool at `apps/tools/game-creator/` with `ingest` and `generate` subcommands and a Jint compatibility validator.
 </objective>
 
 <execution_context>
@@ -103,60 +89,6 @@ Output: A working C# CLI tool at `apps/tools/game-creator/` with `ingest` and `g
 
 <interfaces>
 <!-- Key types and contracts the executor needs from the existing codebase. -->
-
-From libs/shared-types/src/zones.ts:
-```typescript
-export type ZoneType = 'grid' | 'stack' | 'hand' | 'deck' | 'discard';
-
-export interface ZoneDef {
-  id: string;
-  type: ZoneType;
-  capacity?: number;
-  rows?: number;
-  cols?: number;
-  owner?: 'player' | 'shared';
-  position?: { x: number; y: number };
-  render?: ZoneRenderConfig;
-}
-
-export interface ZoneState {
-  id: string;
-  pieces: import('./pieces.js').PieceState[];
-}
-```
-
-From libs/engine/core/src/zones/Zone.ts:
-```typescript
-export abstract class Zone {
-  readonly id: string;
-  readonly type: ZoneType;
-  readonly owner: 'player' | 'shared';
-  readonly capacity?: number;
-  constructor(def: ZoneDef) { ... }
-  abstract addPiece(piece: Piece, position?: unknown): void;
-  abstract removePiece(pieceId: string): Piece | null;
-  abstract getPieces(): Piece[];
-  getPieceCount(): number { ... }
-  isFull(): boolean { ... }
-}
-// Existing: GridZone, StackZone, HandZone, DeckZone, DiscardZone
-```
-
-From libs/engine/core/src/zones/ZoneFactory.ts:
-```typescript
-export const ZoneFactory = {
-  createZone(def: ZoneDef): Zone {
-    switch (def.type) {
-      case 'grid': return new GridZone(def);
-      case 'stack': return new StackZone(def);
-      case 'hand': return new HandZone(def);
-      case 'deck': return new DeckZone(def);
-      case 'discard': return new DiscardZone(def);
-      default: { const _exhaustive: never = def.type; throw new Error(...); }
-    }
-  },
-};
-```
 
 From libs/shared-types/src/hooks.ts:
 ```typescript
@@ -190,7 +122,7 @@ From apps/server/Services/HookExecutor.cs — Jint constraints:
 - No Promise/async/await
 - No `fetch`, `require`, or I/O — pure data transformation only
 - `console.log/warn/error` are shimmed but do nothing
-- StripTypeScriptAnnotations handles: export function → function, export const → var
+- StripTypeScriptAnnotations handles: export function -> function, export const -> var
 
 From libs/games/azul/game.json — reference game package:
 - zones array with ZoneDef objects (id, type, capacity, owner, position, render)
@@ -203,72 +135,7 @@ From libs/games/azul/game.json — reference game package:
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Extend engine with freeform zone type</name>
-  <files>libs/shared-types/src/zones.ts, libs/engine/core/src/zones/Zone.ts, libs/engine/core/src/zones/ZoneFactory.ts</files>
-  <action>
-**1. Update ZoneType** in `libs/shared-types/src/zones.ts` — add `'freeform'` to the union:
-```typescript
-export type ZoneType = 'grid' | 'stack' | 'hand' | 'deck' | 'discard' | 'freeform';
-```
-
-**2. Create FreeformZone class** in `libs/engine/core/src/zones/Zone.ts` — add after the DiscardZone class:
-```typescript
-// ─── FreeformZone ──────────────────────────────────────────────────────────
-
-/**
- * A zone where pieces have no fixed grid — they carry their own coordinates
- * in their data/state field. Used for games with dynamic/growing boards
- * like Hive where pieces define the board shape.
- *
- * Pieces are stored by ID. Position is tracked externally (in piece state or
- * game-specific data structures like HiveGameData.placedPieceCoords).
- * The renderer reads piece positions from game state to calculate pixel positions.
- */
-export class FreeformZone extends Zone {
-  private readonly pieces: Map<string, Piece> = new Map();
-
-  addPiece(piece: Piece): void {
-    this.pieces.set(piece.id, piece);
-  }
-
-  removePiece(pieceId: string): Piece | null {
-    const piece = this.pieces.get(pieceId) ?? null;
-    this.pieces.delete(pieceId);
-    return piece;
-  }
-
-  getPieces(): Piece[] {
-    return Array.from(this.pieces.values());
-  }
-
-  hasPiece(pieceId: string): boolean {
-    return this.pieces.has(pieceId);
-  }
-}
-```
-
-Also add `FreeformZone` to the existing exports at the top of Zone.ts if there is a barrel export, or ensure it is importable from the module.
-
-**3. Update ZoneFactory** in `libs/engine/core/src/zones/ZoneFactory.ts`:
-- Add `FreeformZone` to the import statement alongside the other zone classes.
-- Add a `case 'freeform':` branch to the switch statement BEFORE the default:
-```typescript
-case 'freeform':
-  return new FreeformZone(def);
-```
-
-**4. Update the zones/index.ts barrel export** — ensure `FreeformZone` is exported from `libs/engine/core/src/zones/index.ts` alongside the other zone classes.
-
-**5. Verify** — run `docker compose -f apps/infra/docker-compose.yml exec client npx tsc --noEmit` to confirm all TypeScript compiles cleanly. The ZoneFactory exhaustive switch should still work since the default branch catches `never`, and adding the new case before it is required.
-  </action>
-  <verify>
-    <automated>docker compose -f apps/infra/docker-compose.yml exec client npx tsc --noEmit 2>&1 | tail -10</automated>
-  </verify>
-  <done>ZoneType includes 'freeform'. FreeformZone class exists in Zone.ts with addPiece/removePiece/getPieces/hasPiece. ZoneFactory creates FreeformZone for type 'freeform'. All TypeScript compiles cleanly (tsc --noEmit passes).</done>
-</task>
-
-<task type="auto">
-  <name>Task 2: Create C# CLI tool with two-stage LLM pipeline, review reporter, and Jint validator</name>
+  <name>Task 1: Create C# CLI tool with two-stage LLM pipeline, review reporter, and Jint validator</name>
   <files>apps/tools/game-creator/game-creator.csproj, apps/tools/game-creator/Program.cs, apps/tools/game-creator/Commands/IngestCommand.cs, apps/tools/game-creator/Commands/GenerateCommand.cs, apps/tools/game-creator/Pipeline/RulebookIngestor.cs, apps/tools/game-creator/Pipeline/SpecGenerator.cs, apps/tools/game-creator/Pipeline/CodeGenerator.cs, apps/tools/game-creator/Pipeline/ReviewReporter.cs, apps/tools/game-creator/Pipeline/JintValidator.cs, apps/tools/game-creator/Schema/GameSpecSchema.cs, apps/tools/game-creator/Prompts/SpecPrompt.cs, apps/tools/game-creator/Prompts/CodePrompt.cs</files>
   <action>
 **IMPORTANT:** This is a standalone local CLI tool — NOT part of the Docker Compose services. It runs on the developer's machine with `dotnet run`. You will need the `ANTHROPIC_API_KEY` environment variable set.
@@ -848,29 +715,25 @@ public static class GenerateCommand
 }
 ```
 
-**13. Run `dotnet build apps/tools/game-creator/game-creator.csproj`** to verify the project compiles. Since this is NOT a Docker-managed service but a standalone local tool, build it directly (not through Docker Compose). If dotnet is not available locally, create the files and note that the user needs to run `dotnet restore && dotnet build` from `apps/tools/game-creator/`.
+**13. Verify the project compiles.** Since this is a standalone local C# tool (NOT a Docker Compose service), attempt: `dotnet build apps/tools/game-creator/game-creator.csproj`. If dotnet SDK is not available locally, create the files and note in the summary that the user needs to run `dotnet restore && dotnet build` from `apps/tools/game-creator/`.
 
 **14. Test that the CLI runs:** `dotnet run --project apps/tools/game-creator/ -- --help` should show the `ingest` and `generate` subcommands.
   </action>
   <verify>
-    <automated>ls apps/tools/game-creator/game-creator.csproj && ls apps/tools/game-creator/Pipeline/SpecGenerator.cs && ls apps/tools/game-creator/Pipeline/CodeGenerator.cs && ls apps/tools/game-creator/Pipeline/ReviewReporter.cs && ls apps/tools/game-creator/Pipeline/JintValidator.cs && ls apps/tools/game-creator/Commands/IngestCommand.cs && ls apps/tools/game-creator/Commands/GenerateCommand.cs</automated>
+    <automated>dotnet build apps/tools/game-creator/game-creator.csproj 2>&1 | tail -10 || echo "dotnet SDK not available locally — verify by running: dotnet restore && dotnet build in apps/tools/game-creator/"</automated>
   </verify>
-  <done>C# CLI tool project exists at apps/tools/game-creator/ with Anthropic SDK, PdfPig, Jint, and System.CommandLine dependencies. Two subcommands: `ingest` (rulebook -> game-spec.json + REVIEW.md) and `generate` (game-spec.json -> game.json + hooks.ts). SpecGenerator calls Claude with structured output for spec generation. CodeGenerator calls Claude for code generation. JintValidator validates generated hooks against Jint runtime. ReviewReporter generates markdown checklist with [AMBIGUOUS] flags. All files compile (or are ready for dotnet restore + build).</done>
+  <done>C# CLI tool project exists at apps/tools/game-creator/ with Anthropic SDK, PdfPig, Jint, and System.CommandLine dependencies. Two subcommands: `ingest` (rulebook -> game-spec.json + REVIEW.md) and `generate` (game-spec.json -> game.json + hooks.ts). SpecGenerator calls Claude with structured output for spec generation. CodeGenerator calls Claude for code generation. JintValidator validates generated hooks against Jint runtime. ReviewReporter generates markdown checklist with [AMBIGUOUS] flags. Project compiles (or is ready for dotnet restore + build).</done>
 </task>
 
 </tasks>
 
 <verification>
-- `docker compose -f apps/infra/docker-compose.yml exec client npx tsc --noEmit` succeeds — freeform zone type is valid
+- `dotnet build apps/tools/game-creator/game-creator.csproj` succeeds (or files are syntactically correct and ready to compile)
 - `ls apps/tools/game-creator/Pipeline/` shows SpecGenerator.cs, CodeGenerator.cs, ReviewReporter.cs, JintValidator.cs, RulebookIngestor.cs
 - `ls apps/tools/game-creator/Commands/` shows IngestCommand.cs, GenerateCommand.cs
-- ZoneType in shared-types includes 'freeform'
-- ZoneFactory.ts has a case for 'freeform' that creates FreeformZone
-- FreeformZone class exists in Zone.ts with addPiece/removePiece/getPieces/hasPiece
 </verification>
 
 <success_criteria>
-- Engine supports freeform zone type — ZoneFactory creates FreeformZone without error
 - C# CLI tool has `ingest` and `generate` subcommands backed by a two-stage LLM pipeline
 - SpecGenerator uses Claude structured outputs (or tool-use fallback) to guarantee valid JSON
 - CodeGenerator produces game.json + hooks.ts and validates with Jint before writing
@@ -879,5 +742,5 @@ public static class GenerateCommand
 </success_criteria>
 
 <output>
-After completion, create `.planning/phases/05-ai-game-creation-toolkit/05-01-SUMMARY.md`
+After completion, create `.planning/phases/05-ai-game-creation-toolkit/05-01b-SUMMARY.md`
 </output>

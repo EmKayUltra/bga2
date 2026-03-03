@@ -40,17 +40,19 @@
       // Step 1: Schema validation — validate game.json before creating session
       console.log('[harness] newGame called with selectedGame:', selectedGame);
       const gameConfig = await fetchGameConfig(selectedGame);
+      console.log('[harness] gameConfig loaded:', gameConfig);
       const configErrors = validateGameConfig(gameConfig);
       schemaErrors = configErrors;
       if (configErrors.length > 0) {
         error = `Schema validation failed: ${configErrors.length} error(s). See details below.`;
-        // Continue anyway — let developer see the errors but still create the game
       }
 
       // Step 2: Create game session
       const result = await createTestGame(selectedGame, playerCount);
+      console.log('[harness] session created:', result.sessionId);
       sessionId = result.sessionId;
       await refreshState();
+      console.log('[harness] state loaded, gameState:', gameState ? 'present' : 'null');
 
       // Step 3: Wire PixiJS SceneManager for visual rendering (only for games with renderer support)
       if (sceneManager) { sceneManager.destroy(); sceneManager = null; }
@@ -216,8 +218,10 @@
   <div class="harness-body">
     <!-- Main area: PixiJS renderer + state viewer -->
     <main class="state-viewer">
-      <!-- PixiJS Renderer Container — primary view per user decision -->
-      <div class="renderer-container" bind:this={rendererContainer}></div>
+      <!-- PixiJS Renderer Container — only shown for games with renderer support -->
+      {#if sceneManager || !sessionId}
+        <div class="renderer-container" bind:this={rendererContainer}></div>
+      {/if}
       {#if rendererError}
         <div class="renderer-error">{rendererError}</div>
       {/if}

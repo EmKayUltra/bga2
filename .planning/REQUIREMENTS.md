@@ -62,9 +62,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### AI Game Creation
 
-- [ ] **AIGC-01**: Local C# tool ingests rulebook (PDF/text) and art assets
-- [ ] **AIGC-02**: LLM generates human-reviewable game spec (structured JSON) from source materials
-- [ ] **AIGC-03**: LLM generates game.json + hooks.ts from approved spec
+- [x] **AIGC-01**: Local C# tool ingests rulebook (PDF/text) and art assets
+- [x] **AIGC-02**: LLM generates human-reviewable game spec (structured JSON) from source materials
+- [x] **AIGC-03**: LLM generates game.json + hooks.ts from approved spec
 - [ ] **AIGC-04**: Hot-reload test harness with file watcher and local engine
 - [ ] **AIGC-05**: Game state manipulation for testing specific scenarios (jump to any state)
 - [x] **AIGC-06**: Human review gate with structured checklist and discrepancy report
@@ -166,9 +166,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NOTF-02 | Phase 4 | Complete |
 | NOTF-03 | Phase 4 | Complete |
 | NOTF-04 | Phase 4 | Complete |
-| AIGC-01 | Phase 5 | Pending |
-| AIGC-02 | Phase 5 | Pending |
-| AIGC-03 | Phase 5 | Pending |
+| AIGC-01 | Phase 5 | Complete |
+| AIGC-02 | Phase 5 | Complete |
+| AIGC-03 | Phase 5 | Complete |
 | AIGC-04 | Phase 5 | Pending |
 | AIGC-05 | Phase 5 | Pending |
 | AIGC-06 | Phase 5 | Complete |

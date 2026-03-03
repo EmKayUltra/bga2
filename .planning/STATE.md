@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-02T22:00:00.000Z"
+status: unknown
+last_updated: "2026-03-03T00:30:15.257Z"
 progress:
-  total_phases: 6
+  total_phases: 5
   completed_phases: 4
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 28
+  completed_plans: 25
 ---
 
 # Project State
@@ -46,6 +46,7 @@ Progress: [████████░░] 70% (4 phases + 1 plan complete)
 | Phase 03-multiplayer-social P07 | 6 | 2 tasks | 2 files |
 | Phase 04 P02 | 7 | 2 tasks | 6 files |
 | Phase 04 P05 | 13 | 3 tasks | 14 files |
+| Phase 05-ai-game-creation-toolkit P01b | 13 | 1 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,7 @@ Recent decisions affecting current work:
 - [Phase 04-05]: Digest deferral uses "email-pending-digest" channel in NotificationLog — reuses existing idempotency infrastructure as pending queue
 - [Phase 04-05]: Push notifications always fire immediately even in daily_digest mode — push is inherently real-time, only email gets batched
 - [Phase 05-01a]: FreeformZone stores pieces by ID only — position tracked externally in game-specific state (e.g., HiveGameData.placedPieceCoords); zone owns membership, game owns coordinates
+- [Phase 05]: Anthropic C# SDK 12.x uses OutputConfig.Format (JsonOutputFormat) for structured output — not tool-use workaround. CodeGenerator uses tool_use for mixed-type response (gameJson object + hooksTs string). PdfPig NuGet ID is 'PdfPig' not 'UglyToad.PdfPig'. Anthropic SDK Create() not CreateAsync(); Tools array needs ToolUnion[] wrapper.
 
 ### Pending Todos
 

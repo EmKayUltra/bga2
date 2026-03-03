@@ -11,9 +11,9 @@
 
 import { browser } from '$app/environment';
 
-const API_BASE = browser
-  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080')
-  : (import.meta.env.API_SERVER_URL || 'http://server:8080');
+// Browser: /api prefix proxied by Vite to server:8080 (works from host and Docker)
+// SSR: use Docker service name directly
+const API_BASE = browser ? '/api' : 'http://server:8080';
 
 export function getApiBase(): string {
   return API_BASE;
@@ -34,22 +34,11 @@ export async function discoverGames(): Promise<string[]> {
   }
 }
 
-// Vite static glob import of all game.json files under libs/games/
-// This lets Vite bundle them and allows dynamic lookup by game ID.
-const gameConfigModules = import.meta.glob('../../../../libs/games/*/game.json', { eager: false });
-
 /**
  * Fetches and returns the raw game.json content for a given game ID.
- * Used for schema validation before creating a session.
+ * Uses the dev server endpoint for reliability across Docker environments.
  */
 export async function fetchGameConfig(gameId: string): Promise<unknown> {
-  const key = `../../../../libs/games/${gameId}/game.json`;
-  const loader = gameConfigModules[key];
-  if (loader) {
-    const mod = await loader() as { default: unknown };
-    return mod.default;
-  }
-  // Fallback: fetch from the server's static file hosting
   const res = await fetch(`${API_BASE}/dev/game-config/${gameId}`);
   if (res.ok) return res.json();
   throw new Error(`Game config not found for: ${gameId}`);
@@ -75,7 +64,7 @@ export async function createTestGame(gameId: string, playerCount: number = 2): P
  * Fetches the current game state and valid moves.
  */
 export async function fetchGameState(sessionId: string) {
-  const res = await fetch(`${API_BASE}/games/${sessionId}`);
+  const res = await fetch(`${API_BASE}/dev/${sessionId}/state`);
   if (!res.ok) throw new Error(`Failed to fetch state: ${res.status}`);
   return res.json();
 }

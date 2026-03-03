@@ -22,6 +22,16 @@ public static class DevEndpoints
     {
         var dev = app.MapGroup("/dev").WithTags("Dev");
 
+        // GET /dev/game-config/{gameId} — get game.json for a game (dev testing only)
+        dev.MapGet("/game-config/{gameId}", GetGameConfig)
+            .WithName("DevGetGameConfig")
+            .WithSummary("Get game.json config for a game package (dev testing only)");
+
+        // GET /dev/{sessionId}/state — get game state without auth (dev testing only)
+        dev.MapGet("/{sessionId:guid}/state", GetState)
+            .WithName("DevGetState")
+            .WithSummary("Get current game state and valid moves without authentication (dev testing only)");
+
         // POST /dev/{sessionId}/trigger-round-end
         dev.MapPost("/{sessionId:guid}/trigger-round-end", TriggerRoundEnd)
             .WithName("DevTriggerRoundEnd")
@@ -41,6 +51,42 @@ public static class DevEndpoints
         dev.MapPost("/{sessionId:guid}/move", SubmitMove)
             .WithName("DevSubmitMove")
             .WithSummary("Submit a game move bypassing authentication (dev testing only)");
+    }
+
+    /// <summary>
+    /// Returns the game.json config for a given game ID.
+    /// </summary>
+    private static IResult GetGameConfig(string gameId)
+    {
+        var gamesRoot = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "libs", "games");
+        var configPath = Path.Combine(gamesRoot, gameId, "game.json");
+        if (!File.Exists(configPath))
+        {
+            return Results.NotFound(new { error = $"Game config not found for: {gameId}" });
+        }
+        var json = File.ReadAllText(configPath);
+        return Results.Content(json, "application/json");
+    }
+
+    /// <summary>
+    /// Returns the current game state and valid moves without authentication.
+    /// </summary>
+    private static async Task<IResult> GetState(
+        Guid sessionId,
+        GameService gameService,
+        HookExecutor hookExecutor)
+    {
+        var session = await gameService.LoadSession(sessionId);
+        if (session == null)
+        {
+            return Results.NotFound(new { error = $"Game session {sessionId} not found" });
+        }
+
+        var hooksSource = hookExecutor.LoadHooks(session.GameId);
+        var (currentPlayer, round) = GameService.ExtractPlayerAndRound(session.State);
+        var validMoves = hookExecutor.GetValidMoves(hooksSource, session.State, currentPlayer, round);
+
+        return Results.Ok(new GameStateResponse(session.Id, session.GameId, session.State, session.Version, validMoves));
     }
 
     /// <summary>

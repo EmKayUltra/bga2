@@ -1,13 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
   import { createTestGame, fetchGameState, fetchGameConfig, loadScenario, exportScenario, triggerRoundEnd, triggerGameEnd, setState, discoverGames, getApiBase } from './harness.js';
   import { runBotValidation } from './botRunner.js';
   import { validateGameConfig } from './schemaValidator.js';
-  import { SceneManager } from '$lib/engine/SceneManager.js';
   import type { GameConfig } from '@bga2/shared-types';
 
+  // PixiJS cannot be imported during SSR (requires navigator/window)
+  let SceneManager: any = null;
+
   let availableGames = $state<string[]>([]);
-  let selectedGame = $state('azul');
+  let selectedGame = $state('');
   let playerCount = $state(2);
   let sessionId = $state('');
   let gameState = $state<Record<string, unknown> | null>(null);
@@ -16,7 +19,7 @@
   let error = $state('');
   let botResult = $state<{ success: boolean; moveCount: number; reason: string; error?: string; duration: number } | null>(null);
   let botRunning = $state(false);
-  let autoBot = $state(true);  // Default true per user decision: auto-validate on reload
+  let autoBot = $state(false);
   let schemaErrors = $state<{ field: string; message: string }[]>([]);
   let rendererContainer: HTMLElement;
   let sceneManager: SceneManager | null = null;
@@ -35,6 +38,7 @@
       rendererError = '';
 
       // Step 1: Schema validation — validate game.json before creating session
+      console.log('[harness] newGame called with selectedGame:', selectedGame);
       const gameConfig = await fetchGameConfig(selectedGame);
       const configErrors = validateGameConfig(gameConfig);
       schemaErrors = configErrors;
@@ -48,9 +52,10 @@
       sessionId = result.sessionId;
       await refreshState();
 
-      // Step 3: Wire PixiJS SceneManager for visual rendering
+      // Step 3: Wire PixiJS SceneManager for visual rendering (only for games with renderer support)
       if (sceneManager) { sceneManager.destroy(); sceneManager = null; }
-      if (rendererContainer) {
+      const supportedRenderers = ['azul'];
+      if (rendererContainer && SceneManager && supportedRenderers.includes(selectedGame)) {
         try {
           sceneManager = new SceneManager(rendererContainer, gameConfig as GameConfig);
           await sceneManager.init(sessionId);
@@ -58,6 +63,9 @@
           rendererError = `PixiJS renderer failed: ${String(e)}. Falling back to JSON viewer.`;
           sceneManager = null;
         }
+      } else if (sceneManager) {
+        sceneManager.destroy();
+        sceneManager = null;
       }
 
       // Step 4: Auto-bot validation
@@ -161,15 +169,20 @@
   }
 
   onMount(async () => {
+    // Dynamically import PixiJS-dependent SceneManager (browser-only, crashes in SSR)
+    try {
+      const mod = await import('$lib/engine/SceneManager.js');
+      SceneManager = mod.SceneManager;
+    } catch (e) {
+      console.warn('SceneManager not available:', e);
+    }
+
     // Discover available games dynamically from libs/games/*/
     availableGames = await discoverGames();
-    if (availableGames.length > 0 && !availableGames.includes(selectedGame)) {
+    if (availableGames.length > 0 && (!selectedGame || !availableGames.includes(selectedGame))) {
       selectedGame = availableGames[0];
     }
-    // Auto-create a game on mount for quick iteration (per user decision: auto-validate on reload)
-    if (availableGames.length > 0) {
-      await newGame();
-    }
+    // Don't auto-create — let user pick a game first
   });
 
   onDestroy(() => {
@@ -220,6 +233,7 @@
       {/if}
       {#if gameState}
         <div class="state-summary">
+          <span>Game: <strong>{gameState.gameId as string || selectedGame}</strong></span>
           <span>Phase: <strong>{gameState.phase as string}</strong></span>
           <span>Round: <strong>{gameState.round as number}</strong></span>
           <span>Turn: <strong>{(gameState.players as { name: string }[])?.[gameState.currentPlayerIndex as number]?.name || '?'}</strong></span>

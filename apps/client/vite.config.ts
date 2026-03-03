@@ -110,6 +110,12 @@ export default defineConfig({
 		hmr: {
 			port: 24678,
 		},
+		proxy: {
+			'/api': {
+				target: 'http://server:8080',
+				rewrite: (p: string) => p.replace(/^\/api/, ''),
+			},
+		},
 	},
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}'],

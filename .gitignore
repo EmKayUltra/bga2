@@ -33,6 +33,9 @@ artifacts/
 coverage/
 .nyc_output/
 
+# Screenshot test output
+apps/infra/screenshot/output/
+
 # Environment
 .env
 .env.local

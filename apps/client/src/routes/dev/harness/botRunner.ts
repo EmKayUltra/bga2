@@ -27,10 +27,10 @@ export async function runBotValidation(
 
   try {
     while (moveCount < maxMoves) {
-      // Fetch current game state
-      const stateRes = await fetch(`${apiBase}/games/${sessionId}`);
+      // Fetch current game state via dev endpoint (no auth required)
+      const stateRes = await fetch(`${apiBase}/dev/${sessionId}/state`);
       if (!stateRes.ok) {
-        return { success: false, moveCount, reason: 'error', error: `GET /games failed: ${stateRes.status}`, duration: Date.now() - start };
+        return { success: false, moveCount, reason: 'error', error: `GET /dev/state failed: ${stateRes.status}`, duration: Date.now() - start };
       }
       const { state: stateJson, validMoves } = await stateRes.json();
       const state = typeof stateJson === 'string' ? JSON.parse(stateJson) : stateJson;
@@ -48,8 +48,8 @@ export async function runBotValidation(
       // Pick a random valid move
       const move = validMoves[Math.floor(Math.random() * validMoves.length)];
 
-      // Submit the move
-      const moveRes = await fetch(`${apiBase}/games/${sessionId}/move`, {
+      // Submit the move via dev endpoint (no auth required)
+      const moveRes = await fetch(`${apiBase}/dev/${sessionId}/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
